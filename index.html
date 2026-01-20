@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TERMINAL_ROOT // ESPECTRO-CHAT</title>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root { --bg: #050505; --green: #00ff41; --cyan: #00f3ff; --dark-green: #003b00; }
+        
+        * { box-sizing: border-box; cursor: crosshair !important; }
+
+        body { 
+            background-color: var(--bg); 
+            color: var(--green); 
+            font-family: 'JetBrains Mono', monospace; 
+            margin: 0; 
+            overflow: hidden;
+        }
+
+        /* --- PANTALLA DE CARGA --- */
+        #loading-screen {
+            position: fixed; inset: 0; background: #000; z-index: 9999;
+            display: flex; align-items: center; justify-content: center;
+            padding: 40px; gap: 20px; transition: opacity 0.6s;
+        }
+
+        /* Cuadro Izquierda: Ahora es un indicador mínimo */
+        #loader-console { 
+            flex: 0.1;
+            min-width: 120px;
+            color: var(--green); 
+            font-size: 0.65rem; 
+            border-left: 2px solid var(--green);
+            padding: 10px;
+            background: rgba(0, 255, 65, 0.05);
+            height: fit-content;
+        }
+
+        /* Cuadro Derecha: Fuente HD y nítida */
+        #python-preview { 
+            flex: 1.5; 
+            max-width: 800px; 
+            border: 1px solid rgba(0, 255, 65, 0.1); 
+            padding: 20px; 
+            color: var(--green);
+            font-size: 0.8rem; 
+            height: 450px; 
+            overflow: hidden; 
+            background: rgba(0,0,0,0.5);
+        }
+        #python-code { margin: 0; white-space: pre; line-height: 1.4; text-shadow: 0 0 5px rgba(0,255,65,0.5); }
+
+        /* --- INTERFAZ PRINCIPAL --- */
+        #main-content { display: none; flex-direction: column; min-height: 100vh; }
+        #canvas-bg { position: fixed; inset: 0; z-index: -1; }
+
+        /* --- LOGIN OVERLAY (CORREGIDO) --- */
+        #login-overlay {
+            position: absolute; inset: 0; 
+            background: rgba(5, 5, 5, 0.85); /* Transparente para ver los cuadros */
+            backdrop-filter: blur(5px);
+            z-index: 200; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            animation: fadeIn 1s ease-out;
+        }
+
+        .login-box {
+            background: rgba(0, 20, 0, 0.9);
+            padding: 40px;
+            border: 1px solid var(--green);
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.2);
+            text-align: center;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        /* Input de nombre sin "colores feos" */
+        #user-name {
+            background: transparent; 
+            border: 1px solid var(--green); 
+            color: var(--cyan); 
+            padding: 15px; 
+            margin-bottom: 20px; 
+            text-align: center; 
+            width: 250px; 
+            outline: none; 
+            font-family: 'JetBrains Mono';
+            font-size: 1rem;
+            transition: 0.3s;
+        }
+
+        #user-name:focus {
+            border-color: var(--cyan);
+            box-shadow: 0 0 15px var(--cyan);
+            background: rgba(0, 255, 255, 0.05);
+        }
+
+        /* Animaciones */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        /* --- BOTONES Y CHAT --- */
+        nav { height: 60px; border-bottom: 1px solid var(--green); display: flex; justify-content: space-between; align-items: center; padding: 0 30px; background: rgba(0,0,0,0.8); }
+        .nav-btn {
+            color: var(--green); text-decoration: none; padding: 8px 20px; border: 1px solid var(--green);
+            text-transform: uppercase; font-size: 0.8rem; transition: 0.3s; background: transparent;
+        }
+        .nav-btn:hover { background: var(--green); color: black; box-shadow: 0 0 15px var(--green); }
+
+        .chat-container { width: 450px; height: 70vh; border: 1px solid var(--green); background: rgba(0,0,0,0.9); display: flex; flex-direction: column; }
+        #messages { flex: 1; padding: 15px; overflow-y: auto; }
+        .input-area { border-top: 1px solid var(--green); padding: 10px; display: flex; gap: 10px; }
+        #msg-input { flex: 1; background: transparent; border: 1px solid var(--dark-green); color: white; padding: 10px; outline: none; }
+        .btn-send { background: var(--green); border: none; padding: 10px 20px; font-weight: bold; }
+
+        /* Scrollbar hacker */
+        #messages::-webkit-scrollbar { width: 4px; }
+        #messages::-webkit-scrollbar-thumb { background: var(--green); }
+    </style>
+</head>
+<body>
+
+    <div id="loading-screen">
+        <div id="loader-console"></div>
+        <div id="python-preview"><pre id="python-code"></pre></div>
+    </div>
+
+    <div id="main-content">
+        <canvas id="canvas-bg"></canvas>
+        
+        <div id="login-overlay">
+            <div class="login-box">
+                <p style="color: var(--green); margin-bottom: 20px; letter-spacing: 3px;">IDENTIFICACIÓN REQUERIDA</p>
+                <input type="text" id="user-name" placeholder="INGRESE ALIAS..." autocomplete="off">
+                <br>
+                <button class="nav-btn" onclick="start()">ACCEDER AL SISTEMA</button>
+            </div>
+        </div>
+
+        <nav>
+            <div style="font-size: 10px; color: var(--cyan);">[ STATUS: ENCRYPTED_CHANNEL ]</div>
+            <div>
+                <a href="#" class="nav-btn">DATABASE</a>
+                <a href="#" class="nav-btn">TERMINAL</a>
+            </div>
+        </nav>
+
+        <div style="display: flex; justify-content: space-around; align-items: center; flex: 1; padding: 20px;">
+            <div>
+                <h1 style="font-size: 3rem; color: var(--cyan); text-shadow: 0 0 20px var(--cyan);" id="display-greeting">HOLA, USUARIO</h1>
+                <p style="color: var(--green); opacity: 0.7;">> LINK_ESTABLECIDO // PORT_8080</p>
+            </div>
+            <div class="chat-container">
+                <div id="messages"></div>
+                <div class="input-area">
+                    <input type="text" id="msg-input" placeholder="Comando...">
+                    <button class="btn-send" onclick="send()">></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = { apiKey: "AIzaSyDpd6nFqhFZX9ucMdDe6m-YzW-LHhJ_1E", authDomain: "espectro-chat.firebaseapp.com", databaseURL: "https://espectro-chat-default-rtdb.firebaseio.com", projectId: "espectro-chat", storageBucket: "espectro-chat.firebasestorage.app", messagingSenderId: "56778905870", appId: "1:56778905870:web:93e425ae563d997b7fdf5f" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Lógica de carga
+        const consoleEl = document.getElementById('loader-console');
+        const pythonEl = document.getElementById('python-code');
+        const mainLines = ["> BOOT", "> SYNC", "> READY"];
+        const complexPython = [
+            "import socket, hashlib, random",
+            "def inject_payload():",
+            "    sig = hashlib.sha256(b'root').hexdigest()",
+            "    for i in range(25):",
+            "        print(f'[OK] Injected at {hex(random.getrandbits(16))}')",
+            "if __name__ == '__main__':",
+            "    inject_payload()",
+            "# SYSTEM STATUS: OPERATIONAL"
+        ];
+
+        let mIdx = 0, cIdx = 0, pLine = 0;
+        function typePython() { if (pLine < complexPython.length) { pythonEl.textContent += complexPython[pLine++] + "\n"; setTimeout(typePython, 20); } }
+        function typeMain() {
+            if (mIdx < mainLines.length) {
+                let line = mainLines[mIdx];
+                if (cIdx < line.length) { consoleEl.textContent += line[cIdx++]; setTimeout(typeMain, 40); }
+                else { consoleEl.innerHTML += "<br>"; cIdx = 0; mIdx++; setTimeout(typeMain, 300); }
+            } else { setTimeout(finish, 500); }
+        }
+
+        function finish() {
+            document.getElementById('loading-screen').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('loading-screen').style.display = 'none';
+                document.getElementById('main-content').style.display = 'flex';
+                initAnim(); // El fondo de cuadros empieza aquí
+            }, 600);
+        }
+
+        window.onload = () => { typeMain(); typePython(); };
+
+        // Lógica de Chat
+        let user = "";
+        function start() {
+            let val = document.getElementById('user-name').value;
+            if(val.trim()) {
+                user = val;
+                document.getElementById('login-overlay').style.opacity = '0';
+                setTimeout(() => document.getElementById('login-overlay').style.display = 'none', 500);
+                document.getElementById('display-greeting').innerText = `HOLA, ${user.toUpperCase()}`;
+            }
+        }
+
+        function send() {
+            let input = document.getElementById('msg-input');
+            if(input.value.trim() && user) {
+                let t = new Date();
+                let time = t.getHours().toString().padStart(2, '0') + ":" + t.getMinutes().toString().padStart(2, '0');
+                db.ref("messages").push({ user: user, text: input.value, time: time });
+                input.value = "";
+            }
+        }
+
+        db.ref("messages").on("child_added", (s) => {
+            let d = s.val();
+            let box = document.getElementById('messages');
+            box.innerHTML += `<div style="margin-bottom:10px; border-left:2px solid var(--green); padding-left:10px;"><small style="color:#555">[${d.time}]</small> <b style="color:var(--cyan)">${d.user}:</b> <span style="color:white">${d.text}</span></div>`;
+            box.scrollTop = box.scrollHeight;
+        });
+
+        // Fondo de cuadros mejorado
+        function initAnim() {
+            const c = document.getElementById('canvas-bg'), ctx = c.getContext('2d');
+            c.width = window.innerWidth; c.height = window.innerHeight;
+            let sqs = [];
+            class Sq {
+                constructor() { this.init(); }
+                init() { this.s = Math.random() * 25 + 5; this.x = Math.random() * c.width; this.y = Math.random() * c.height; this.vx = (Math.random() - 0.5) * 1.2; this.vy = (Math.random() - 0.5) * 1.2; this.o = Math.random() * 0.3; }
+                update() { this.x += this.vx; this.y += this.vy; if (this.x < 0 || this.x > c.width) this.vx *= -1; if (this.y < 0 || this.y > c.height) this.vy *= -1; }
+                draw() { ctx.strokeStyle = `rgba(0, 255, 65, ${this.o})`; ctx.strokeRect(this.x, this.y, this.s, this.s); }
+            }
+            for (let i = 0; i < 100; i++) sqs.push(new Sq());
+            function loop() { ctx.fillStyle = 'rgba(5, 5, 5, 0.2)'; ctx.fillRect(0, 0, c.width, c.height); sqs.forEach(s => { s.update(); s.draw(); }); requestAnimationFrame(loop); }
+            loop();
+        }
+    </script>
+</body>
+</html>
