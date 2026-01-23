@@ -16,87 +16,83 @@
         * { box-sizing: border-box; cursor: crosshair !important; }
         body { background: var(--bg); color: var(--green); font-family: 'JetBrains Mono', monospace; margin: 0; height: 100vh; overflow: hidden; }
 
-        /* FIX AUTOFILL */
-        input:-webkit-autofill { -webkit-text-fill-color: #fff !important; -webkit-box-shadow: 0 0 0px 1000px #0a1a0a inset !important; }
-
-        /* CARGA */
+        /* PANTALLA DE CARGA */
         #loading-screen { position: fixed; inset: 0; background: var(--bg); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .loader-bar { width: 200px; height: 2px; background: #002200; position: relative; overflow: hidden; margin-top: 15px; }
-        .loader-progress { width: 40%; height: 100%; background: var(--green); position: absolute; animation: load 1.5s infinite; }
-        @keyframes load { from { left: -40%; } to { left: 100%; } }
+        .loader { width: 40px; height: 40px; border: 2px solid #002200; border-top-color: var(--cyan); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* AUTH OVERLAY - Ahora con visibilidad asegurada */
-        #auth-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; display: none; align-items: center; justify-content: center; }
+        /* FORMULARIOS */
+        #auth-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 1000; display: none; align-items: center; justify-content: center; }
         .auth-card { width: 380px; padding: 35px; border: 1px solid var(--green); background: #000; box-shadow: 0 0 20px rgba(0,255,65,0.1); }
         .auth-tab { display: none; } .auth-tab.active { display: block; }
 
-        /* INPUTS CON ICONO DE OJO */
+        /* INPUTS CON OJO */
         .input-group { margin-bottom: 20px; position: relative; }
-        input { width: 100%; background: #000 !important; border: 1px solid #004400; color: #fff !important; padding: 12px; font-family: 'JetBrains Mono'; outline: none; }
-        input:focus { border-color: var(--cyan); }
-        .eye-btn { position: absolute; right: 12px; top: 12px; cursor: pointer !important; color: var(--green); opacity: 0.6; font-size: 1.1rem; }
+        input { width: 100%; background: #000 !important; border: 1px solid #003300; color: #fff !important; padding: 12px; font-family: 'JetBrains Mono'; outline: none; }
+        .eye-btn { position: absolute; right: 12px; top: 12px; color: var(--green); cursor: pointer !important; font-size: 1.2rem; opacity: 0.6; user-select: none; }
 
-        /* DISEÑO CHAT */
+        /* INTERFAZ CHAT */
         header { padding: 15px 25px; border-bottom: 1px solid #111; display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
         #main-chat { display: none; flex-direction: column; height: 100vh; }
         #messages { flex: 1; overflow-y: auto; padding: 25px; display: flex; flex-direction: column; gap: 8px; }
-        .btn { background: transparent; border: 1px solid var(--green); color: var(--green); padding: 10px 20px; font-weight: bold; cursor: pointer !important; text-transform: uppercase; transition: 0.3s; }
+        
+        .btn { background: transparent; border: 1px solid var(--green); color: var(--green); padding: 12px; font-weight: bold; cursor: pointer !important; text-transform: uppercase; width: 100%; margin-top: 10px; }
         .btn:hover { background: var(--green); color: #000; }
         
         .chat-footer { padding: 20px; border-top: 1px solid #111; display: flex; gap: 10px; }
+        #chat-input { flex: 1; }
     </style>
 </head>
 <body>
 
     <div id="loading-screen">
-        <p id="loading-text" style="font-size: 10px; letter-spacing: 2px;">SISTEMA_OFFLINE</p>
-        <div class="loader-bar"><div class="loader-progress"></div></div>
+        <div class="loader"></div>
+        <p style="margin-top:20px; font-size:9px; letter-spacing:3px; color:var(--cyan);">SISTEMA_IDENTIFICANDO...</p>
     </div>
 
     <div id="auth-overlay">
         <div class="auth-card">
             <div id="login-tab" class="auth-tab active">
-                <h2 style="text-align:center; color:var(--cyan); font-size: 14px;">// ACCESO</h2>
+                <h2 style="text-align:center; color:var(--cyan); font-size: 14px;">// LOGIN</h2>
                 <div class="input-group"><input type="text" id="log-user" placeholder="USUARIO"></div>
                 <div class="input-group">
                     <input type="password" id="log-pass" placeholder="PASSWORD">
                     <span class="eye-btn" onclick="togglePass('log-pass')">👁</span>
                 </div>
-                <button class="btn" style="width:100%;" onclick="login()">CONECTAR</button>
+                <button class="btn" onclick="login()">CONECTAR</button>
                 <p style="font-size:9px; text-align:center; margin-top:20px; cursor:pointer;" onclick="setTab('reg-tab')">REGISTRAR_NUEVO_NODO</p>
             </div>
 
             <div id="reg-tab" class="auth-tab">
-                <h2 style="text-align:center; color:var(--cyan); font-size: 14px;">// REGISTRO</h2>
-                <div class="input-group"><input type="text" id="reg-user" placeholder="NOMBRE_USUARIO"></div>
+                <h2 style="text-align:center; color:var(--cyan); font-size: 14px;">// CREAR_NODO</h2>
+                <div class="input-group"><input type="text" id="reg-user" placeholder="USUARIO"></div>
                 <div class="input-group">
                     <input type="password" id="reg-p1" placeholder="PASSWORD">
                     <span class="eye-btn" onclick="togglePass('reg-p1')">👁</span>
                 </div>
                 <div class="input-group">
-                    <input type="password" id="reg-p2" placeholder="CONFIRMAR_PASSWORD">
+                    <input type="password" id="reg-p2" placeholder="CONFIRMAR">
                     <span class="eye-btn" onclick="togglePass('reg-p2')">👁</span>
                 </div>
-                <button class="btn" style="width:100%;" onclick="register()">INICIALIZAR</button>
-                <p style="font-size:9px; text-align:center; margin-top:20px; cursor:pointer;" onclick="setTab('login-tab')">VOLVER_AL_ACCESO</p>
+                <button class="btn" onclick="register()">INICIALIZAR</button>
+                <p style="font-size:9px; text-align:center; margin-top:20px; cursor:pointer;" onclick="setTab('login-tab')">VOLVER AL LOGIN</p>
             </div>
         </div>
     </div>
 
     <div id="main-chat">
         <header>
-            <div>CONECTADO // NODO: <span id="display-name" style="color:var(--cyan)">...</span></div>
+            <div>NODO: <span id="display-name" style="color:var(--cyan)">...</span> | ESTADO: ONLINE</div>
             <button onclick="logout()" style="color:red; background:none; border:1px solid red; padding:4px 10px; font-size:9px; cursor:pointer !important;">LOGOUT</button>
         </header>
         <div id="messages"></div>
         <div class="chat-footer">
             <input type="text" id="chat-input" placeholder="Comando..." onkeypress="if(event.key==='Enter') send()">
-            <button class="btn" onclick="send()">></button>
+            <button class="btn" style="width:auto; margin:0; padding:0 25px;" onclick="send()">></button>
         </div>
     </div>
 
     <script>
-        // API KEY VERIFICADA
         const firebaseConfig = { 
             apiKey: "AIzaSyDpd6nFqhFZX9ucMdDe6m-YzW-L-HhJ_1E", 
             authDomain: "espectro-chat.firebaseapp.com", 
@@ -107,7 +103,6 @@
         const auth = firebase.auth();
         const db = firebase.database();
 
-        // FUNCIONES UI
         function setTab(id) {
             document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
             document.getElementById(id).classList.add('active');
@@ -120,25 +115,25 @@
 
         const genMail = (u) => `${u.toLowerCase().trim().replace(/\s/g, '')}@terminal.local`;
 
-        // LOGICA AUTH
         async function register() {
             const user = document.getElementById('reg-user').value.trim();
             const p1 = document.getElementById('reg-p1').value;
             const p2 = document.getElementById('reg-p2').value;
-            if(!user || p1.length < 6 || p1 !== p2) return alert("Datos no válidos.");
+            if(!user || p1 !== p2 || p1.length < 6) return alert("Verifica los datos.");
 
             try {
                 const res = await auth.createUserWithEmailAndPassword(genMail(user), p1);
                 await db.ref('users/' + res.user.uid).set({ username: user });
                 location.reload();
-            } catch(e) { alert("Error en el registro."); }
+            } catch(e) { alert("Error: El usuario ya existe."); }
         }
 
         async function login() {
             const user = document.getElementById('log-user').value.trim();
             const pass = document.getElementById('log-pass').value;
-            try { await auth.signInWithEmailAndPassword(genMail(user), pass); }
-            catch(e) { alert("Credenciales incorrectas."); }
+            try {
+                await auth.signInWithEmailAndPassword(genMail(user), pass);
+            } catch(e) { alert("Acceso denegado."); }
         }
 
         function logout() { auth.signOut().then(() => location.reload()); }
@@ -147,52 +142,36 @@
             const inp = document.getElementById('chat-input');
             if(inp.value.trim() && auth.currentUser) {
                 db.ref('users/' + auth.currentUser.uid).once('value', s => {
-                    db.ref('messages').push({ user: s.val().username, text: inp.value });
+                    const u = s.val() ? s.val().username : "Anon";
+                    db.ref('messages').push({ user: u, text: inp.value });
                     inp.value = '';
                 });
             }
         }
 
-        // CARGA DE MENSAJES
         db.ref('messages').limitToLast(50).on('child_added', snap => {
             const d = snap.val();
             const div = document.createElement('div');
             div.innerHTML = `<b style="color:var(--cyan)">${d.user.toUpperCase()}:</b> <span style="color:#fff">${d.text}</span>`;
-            const box = document.getElementById('messages');
-            box.appendChild(div);
-            box.scrollTop = box.scrollHeight;
+            document.getElementById('messages').appendChild(div);
+            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
         });
 
-        // CONTROL DE VISIBILIDAD CRÍTICO
         auth.onAuthStateChanged(user => {
-            const loader = document.getElementById('loading-screen');
-            const authScreen = document.getElementById('auth-overlay');
-            const chatScreen = document.getElementById('main-chat');
-
+            document.getElementById('loading-screen').style.display = 'none';
             if(user) {
                 db.ref('users/' + user.uid).once('value', s => {
-                    const data = s.val();
-                    if(data) {
-                        document.getElementById('display-name').innerText = data.username.toUpperCase();
-                        loader.style.display = 'none';
-                        authScreen.style.display = 'none';
-                        chatScreen.style.display = 'flex';
+                    if(s.val()) {
+                        document.getElementById('display-name').innerText = s.val().username.toUpperCase();
+                        document.getElementById('auth-overlay').style.display = 'none';
+                        document.getElementById('main-chat').style.display = 'flex';
                     }
                 });
             } else {
-                loader.style.display = 'none';
-                chatScreen.style.display = 'none';
-                authScreen.style.display = 'flex';
+                document.getElementById('auth-overlay').style.display = 'flex';
+                document.getElementById('main-chat').style.display = 'none';
             }
         });
-
-        // Efecto de texto en carga
-        const texts = ["VINCULANDO_DATOS", "ESPECTRO_OS_INIT", "VERIFICANDO_NODOS"];
-        let i = 0;
-        setInterval(() => {
-            document.getElementById('loading-text').innerText = texts[i % texts.length];
-            i++;
-        }, 500);
     </script>
 </body>
 </html>
