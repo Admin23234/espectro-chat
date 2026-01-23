@@ -11,28 +11,32 @@
         :root { --green: #00ff41; --cyan: #00f3ff; --bg: #050505; --red: #ff3131; --yellow: #ffff00; }
         body { background: var(--bg); color: var(--green); font-family: 'JetBrains Mono', monospace; margin: 0; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         
-        /* Overlays y Pantallas */
+        /* Loader y Ban */
         #loader { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .bar-container { width: 200px; height: 2px; background: #111; margin-top: 15px; }
         .bar-fill { width: 0%; height: 100%; background: var(--green); transition: width 0.1s; }
         #ban-overlay { position: fixed; inset: 0; background: #1a0000; color: #fff; z-index: 10000; display: none; align-items: center; justify-content: center; flex-direction: column; text-align: center; border: 5px solid var(--red); }
         #auth-overlay { position: fixed; inset: 0; background: #000; z-index: 1000; display: none; align-items: center; justify-content: center; }
         .auth-card { width: 300px; padding: 30px; border: 1px solid var(--green); background: #000; }
-        
-        /* Ventana de Chat Privado */
-        #private-window { position: fixed; bottom: 80px; right: 20px; width: 300px; height: 400px; background: #0a0a0a; border: 1px solid var(--cyan); display: none; flex-direction: column; z-index: 2000; box-shadow: 0 0 15px rgba(0, 243, 255, 0.2); }
-        #private-header { background: #111; padding: 10px; font-size: 10px; display: flex; justify-content: space-between; border-bottom: 1px solid var(--cyan); color: var(--cyan); }
-        #private-msgs { flex: 1; overflow-y: auto; padding: 10px; font-size: 12px; color: #fff; }
 
-        /* Estilos Generales */
-        input { width: 100%; background: #000; border: 1px solid #004400; color: #fff; padding: 12px; font-family: 'JetBrains Mono'; outline: none; margin-bottom: 10px; box-sizing: border-box; }
-        .btn { width: 100%; background: transparent; border: 1px solid var(--green); color: var(--green); padding: 12px; cursor: pointer; font-family: 'JetBrains Mono'; font-weight: bold; }
-        .btn:hover { background: var(--green); color: #000; }
+        /* Chat Principal */
         #main-chat { display: none; flex-direction: column; height: 100vh; }
         header { padding: 10px 20px; border-bottom: 1px solid #111; display: flex; justify-content: space-between; font-size: 11px; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; }
+
+        /* Chat Privado y Notificación */
+        #private-window { position: fixed; bottom: 80px; right: 20px; width: 300px; height: 400px; background: #0a0a0a; border: 1px solid var(--cyan); display: none; flex-direction: column; z-index: 2000; box-shadow: 0 0 15px rgba(0, 243, 255, 0.2); }
+        #private-header { background: #111; padding: 10px; font-size: 10px; display: flex; justify-content: space-between; border-bottom: 1px solid var(--cyan); color: var(--cyan); }
+        #private-msgs { flex: 1; overflow-y: auto; padding: 10px; font-size: 12px; color: #fff; }
+        
+        #pvt-notif { position: fixed; bottom: 90px; right: 20px; background: var(--cyan); color: #000; padding: 10px; font-size: 10px; font-weight: bold; cursor: pointer; display: none; z-index: 1999; animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
+        /* Utils */
+        input { width: 100%; background: #000; border: 1px solid #004400; color: #fff; padding: 12px; font-family: 'JetBrains Mono'; outline: none; margin-bottom: 10px; box-sizing: border-box; }
+        .btn { width: 100%; background: transparent; border: 1px solid var(--green); color: var(--green); padding: 12px; cursor: pointer; font-family: 'JetBrains Mono'; font-weight: bold; }
+        .btn:hover { background: var(--green); color: #000; }
         .user-clickable { cursor: pointer; text-decoration: underline; }
-        .user-clickable:hover { color: #fff !important; }
         .admin-tag { color: var(--red); border: 1px solid var(--red); font-size: 9px; padding: 0 3px; margin-right: 5px; font-weight: bold; }
         .system-msg { color: var(--yellow); font-size: 13px; margin: 10px 0; border-left: 2px solid var(--yellow); padding-left: 10px; }
         .banned-name { color: var(--cyan); font-weight: bold; }
@@ -68,10 +72,12 @@
         </header>
         <div id="messages"></div>
         <div style="padding:15px; display:flex; gap:10px;">
-            <input type="text" id="msg-input" placeholder="Mensaje o comandos /ban, /unban..." onkeypress="if(event.key==='Enter') enviar()">
+            <input type="text" id="msg-input" placeholder="Mensaje o comandos..." onkeypress="if(event.key==='Enter') enviar()">
             <button class="btn" style="width:auto; padding:0 20px;" onclick="enviar()">></button>
         </div>
     </div>
+
+    <div id="pvt-notif" onclick="abrirDesdeNotif()">[ NUEVA TRANSMISIÓN PRIVADA ]</div>
 
     <div id="private-window">
         <div id="private-header">
@@ -80,7 +86,7 @@
         </div>
         <div id="private-msgs"></div>
         <div style="padding:5px;">
-            <input type="text" id="private-input" style="font-size:10px; padding:8px;" placeholder="Mensaje privado..." onkeypress="if(event.key==='Enter') enviarPrivado()">
+            <input type="text" id="private-input" style="font-size:10px; padding:8px;" placeholder="Responder..." onkeypress="if(event.key==='Enter') enviarPrivado()">
         </div>
     </div>
 
@@ -96,7 +102,8 @@
         const db = firebase.database();
 
         let modoRegistro = false;
-        let chatPrivadoCon = null; // Almacena el nombre del usuario destino
+        let chatPrivadoCon = null;
+        let ultimaNotifDe = null;
         const getDeviceId = () => btoa(navigator.userAgent + navigator.language).substring(0, 25);
 
         window.onload = () => {
@@ -110,12 +117,13 @@
                     if(!(await comprobarBaneo())) {
                         gestionarSesionAlCargar();
                         actualizarInterfaz();
+                        iniciarRastreadorPrivado();
                     }
                 }
             }, 100);
         };
 
-        // ... [Funciones de Baneo, Sesión y Acceso iguales a las anteriores] ...
+        // --- FUNCIONES DE BAN Y ACCESO ---
         async function comprobarBaneo() {
             const devId = getDeviceId();
             const snap = await db.ref('banned_devices/' + devId).once('value');
@@ -148,68 +156,55 @@
             if (await comprobarBaneo()) return;
             const u = document.getElementById('user').value.trim().toLowerCase();
             const p = document.getElementById('pass').value;
-            if(!u || p.length < 6) return alert("Datos insuficientes.");
+            if(!u || p.length < 6) return alert("Error en datos.");
             try {
                 if(auth.currentUser) await auth.signOut();
                 const email = u + "@terminal.local";
                 const devId = getDeviceId();
                 if(modoRegistro) {
-                    const res = await auth.createUserWithEmailAndPassword(email, p);
-                    await db.ref('users/' + res.user.uid).set({ username: u, role: 'user', devId: devId });
+                    await auth.createUserWithEmailAndPassword(email, p);
+                    await db.ref('users/' + auth.currentUser.uid).set({ username: u, role: 'user', devId: devId });
                 } else {
                     await auth.signInWithEmailAndPassword(email, p);
                     await db.ref('users/' + auth.currentUser.uid).update({ devId: devId });
                 }
                 sessionStorage.setItem('active_session', 'true');
-                actualizarInterfaz();
-            } catch(e) { alert("ERROR DE ACCESO"); }
+                location.reload();
+            } catch(e) { alert("ACCESO DENEGADO"); }
         }
 
-        // Lógica de Mensajes Globales
-        async function enviar() {
-            const inp = document.getElementById('msg-input');
-            const val = inp.value.trim();
-            if(!val || !auth.currentUser) return;
-
-            const snap = await db.ref('users/' + auth.currentUser.uid).once('value');
-            const me = snap.val();
-            const isAdmin = me.role === 'admin' || me.username.toLowerCase() === 'johan';
-
-            // Comandos /ban, /unban, /clear
-            if (val.startsWith('/ban ') && isAdmin) {
-                const parts = val.split(' ');
-                const targetName = parts[1];
-                const days = parseInt(parts[2]) || 1;
-                const usersSnap = await db.ref('users').once('value');
-                let targetDevId = null;
-                usersSnap.forEach(u => { if(u.val().username === targetName) targetDevId = u.val().devId; });
-                if(targetDevId) {
-                    const until = Date.now() + (days * 24 * 60 * 60 * 1000);
-                    await db.ref('banned_devices/' + targetDevId).set({ until: until, bannedUser: targetName });
-                    const msgsSnap = await db.ref('messages').once('value');
-                    msgsSnap.forEach(m => { if(m.val().user === targetName) db.ref('messages/'+m.key).remove(); });
-                    db.ref('messages').push({ user: 'SISTEMA', target: targetName.toUpperCase(), admin: me.username.toUpperCase(), isBanMsg: true, time: Date.now() });
-                } else { alert("Usuario no encontrado."); }
-            } else if (val.startsWith('/unban ') && isAdmin) {
-                const targetName = val.split(' ')[1];
-                const banRef = db.ref('banned_devices');
-                const snapBans = await banRef.once('value');
-                let found = false;
-                snapBans.forEach(child => { if(child.val().bannedUser === targetName) { banRef.child(child.key).remove(); found = true; } });
-                if(found) db.ref('messages').push({ user: 'SISTEMA', text: `ACCESO RESTAURADO PARA: ${targetName.toUpperCase()} POR EL ADMIN: ${me.username.toUpperCase()}`, isUnban: true, time: Date.now() });
-            } else if(val === "/clear" && isAdmin) {
-                db.ref('messages').remove();
-            } else if (!val.startsWith('/')) {
-                db.ref('messages').push({ user: me.username, text: val, role: me.role || 'user', time: Date.now() });
-            }
-            inp.value = '';
+        // --- CHAT PRIVADO CON NOTIFICADOR ---
+        function iniciarRastreadorPrivado() {
+            auth.onAuthStateChanged(user => {
+                if (!user) return;
+                db.ref('users/' + user.uid).once('value', snap => {
+                    const miNombre = snap.val().username.toLowerCase();
+                    db.ref('private_messages').on('child_added', snapshot => {
+                        const chatID = snapshot.key;
+                        if (chatID.includes(miNombre)) {
+                            db.ref('private_messages/' + chatID).limitToLast(1).on('child_added', mSnap => {
+                                const m = mSnap.val();
+                                if (m.from !== miNombre && chatPrivadoCon !== m.from) {
+                                    ultimaNotifDe = m.from;
+                                    document.getElementById('pvt-notif').style.display = 'block';
+                                    document.getElementById('pvt-notif').innerText = `[ MENSAJE DE: ${m.from.toUpperCase()} ]`;
+                                }
+                            });
+                        }
+                    });
+                });
+            });
         }
 
-        // LÓGICA DE CHAT PRIVADO
+        function abrirDesdeNotif() {
+            if (ultimaNotifDe) abrirPrivado(ultimaNotifDe);
+        }
+
         function abrirPrivado(target) {
             const miNombre = document.getElementById('display-name').innerText.toLowerCase();
             if(target.toLowerCase() === miNombre) return;
             chatPrivadoCon = target;
+            document.getElementById('pvt-notif').style.display = 'none';
             document.getElementById('private-target-name').innerText = "MENSAJE PARA: " + target.toUpperCase();
             document.getElementById('private-window').style.display = 'flex';
             escucharPrivados();
@@ -225,15 +220,8 @@
             const txt = inp.value.trim();
             if(!txt || !chatPrivadoCon) return;
             const miNombre = document.getElementById('display-name').innerText.toLowerCase();
-            
-            // Creamos un ID único para el canal privado (ordenado alfabéticamente)
             const chatID = [miNombre, chatPrivadoCon.toLowerCase()].sort().join("_");
-            
-            db.ref('private_messages/' + chatID).push({
-                from: miNombre,
-                text: txt,
-                time: Date.now()
-            });
+            db.ref('private_messages/' + chatID).push({ from: miNombre, text: txt, time: Date.now() });
             inp.value = '';
         }
 
@@ -241,7 +229,6 @@
             if(!chatPrivadoCon) return;
             const miNombre = document.getElementById('display-name').innerText.toLowerCase();
             const chatID = [miNombre, chatPrivadoCon.toLowerCase()].sort().join("_");
-            
             db.ref('private_messages/' + chatID).on('value', snap => {
                 const box = document.getElementById('private-msgs');
                 box.innerHTML = '';
@@ -249,18 +236,50 @@
                     const m = c.val();
                     const p = document.createElement('p');
                     p.style.margin = "5px 0";
-                    const color = m.from === miNombre ? 'var(--green)' : 'var(--cyan)';
-                    p.innerHTML = `<b style="color:${color}">${m.from.toUpperCase()}:</b> ${m.text}`;
+                    p.innerHTML = `<b style="color:${m.from === miNombre ? 'var(--green)' : 'var(--cyan)'}">${m.from.toUpperCase()}:</b> ${m.text}`;
                     box.appendChild(p);
                 });
                 box.scrollTop = box.scrollHeight;
             });
         }
 
+        // --- CHAT GLOBAL Y COMANDOS ---
+        async function enviar() {
+            const inp = document.getElementById('msg-input');
+            const val = inp.value.trim();
+            if(!val || !auth.currentUser) return;
+            const snap = await db.ref('users/' + auth.currentUser.uid).once('value');
+            const me = snap.val();
+            const isAdmin = me.role === 'admin' || me.username.toLowerCase() === 'johan';
+
+            if (val.startsWith('/ban ') && isAdmin) {
+                const parts = val.split(' ');
+                const targetName = parts[1];
+                const days = parseInt(parts[2]) || 1;
+                const usersSnap = await db.ref('users').once('value');
+                let targetDevId = null;
+                usersSnap.forEach(u => { if(u.val().username === targetName) targetDevId = u.val().devId; });
+                if(targetDevId) {
+                    const until = Date.now() + (days * 24 * 60 * 60 * 1000);
+                    await db.ref('banned_devices/' + targetDevId).set({ until: until, bannedUser: targetName });
+                    db.ref('messages').push({ user: 'SISTEMA', target: targetName.toUpperCase(), admin: me.username.toUpperCase(), isBanMsg: true, time: Date.now() });
+                }
+            } else if (val.startsWith('/unban ') && isAdmin) {
+                const targetName = val.split(' ')[1];
+                const banRef = db.ref('banned_devices');
+                const snapBans = await banRef.once('value');
+                snapBans.forEach(child => { if(child.val().bannedUser === targetName) banRef.child(child.key).remove(); });
+            } else if(val === "/clear" && isAdmin) {
+                db.ref('messages').remove();
+            } else if (!val.startsWith('/')) {
+                db.ref('messages').push({ user: me.username, text: val, role: me.role || 'user', time: Date.now() });
+            }
+            inp.value = '';
+        }
+
         function actualizarInterfaz() {
-            const user = auth.currentUser;
-            if(user && sessionStorage.getItem('active_session')) {
-                db.ref('users/' + user.uid).on('value', s => {
+            if(auth.currentUser && sessionStorage.getItem('active_session')) {
+                db.ref('users/' + auth.currentUser.uid).on('value', s => {
                     if(s.val()) {
                         document.getElementById('display-name').innerText = s.val().username.toUpperCase();
                         document.getElementById('auth-overlay').style.display = 'none';
@@ -269,16 +288,11 @@
                 });
             } else {
                 document.getElementById('auth-overlay').style.display = 'flex';
-                document.getElementById('main-chat').style.display = 'none';
             }
         }
 
-        function cerrarSesion() {
-            sessionStorage.removeItem('active_session');
-            auth.signOut().then(() => location.reload());
-        }
+        function cerrarSesion() { sessionStorage.removeItem('active_session'); auth.signOut().then(() => location.reload()); }
 
-        // Renderizado Global con Click para Privado
         db.ref('messages').on('value', snap => {
             const box = document.getElementById('messages');
             box.innerHTML = '';
@@ -286,25 +300,17 @@
                 const m = c.val();
                 const div = document.createElement('div');
                 div.style.marginBottom = "8px";
-                
-                if(m.isBanMsg || m.isUnban || (m.user === 'SISTEMA' && m.text && m.text.includes('BANEADO'))) {
+                if(m.isBanMsg) {
                     div.className = 'system-msg';
-                    if(m.isUnban) div.innerHTML = `[+] <span style="color:var(--green)">${m.text}</span>`;
-                    else if(m.target) div.innerHTML = `[!] EL USUARIO <span class="banned-name">${m.target}</span> HA SIDO BANEADO POR: <span class="admin-name">${m.admin}</span>`;
-                    else div.innerHTML = `[!] ${m.text}`;
+                    div.innerHTML = `[!] EL USUARIO <span class="banned-name">${m.target}</span> HA SIDO BANEADO POR: <span class="admin-name">${m.admin}</span>`;
                 } else {
                     const isAdmin = (m.role === 'admin' || m.user.toLowerCase() === 'johan');
-                    const tag = isAdmin ? '<span class="admin-tag">ADMIN</span>' : '';
-                    const nameColor = isAdmin ? 'var(--cyan)' : '#fff';
-                    // Añadimos la función abrirPrivado al hacer clic en el nombre
-                    div.innerHTML = `${tag}<b class="user-clickable" style="color:${nameColor}" onclick="abrirPrivado('${m.user}')">${m.user}:</b> <span style="color:#fff">${m.text}</span>`;
+                    div.innerHTML = `${isAdmin ? '<span class="admin-tag">ADMIN</span>' : ''}<b class="user-clickable" style="color:${isAdmin?'var(--cyan)':'#fff'}" onclick="abrirPrivado('${m.user}')">${m.user}:</b> <span style="color:#fff">${m.text}</span>`;
                 }
                 box.appendChild(div);
             });
             box.scrollTop = box.scrollHeight;
         });
-
-        auth.onAuthStateChanged(() => actualizarInterfaz());
     </script>
 </body>
 </html>
