@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TERMINAL_ROOT // ESPECTRO-CHAT</title>
+    <title>ESPECTRO_TERMINAL // v2.0</title>
     
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -11,168 +11,169 @@
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
-        :root { --bg: #050505; --green: #00ff41; --cyan: #00f3ff; }
+        :root { --green: #00ff41; --cyan: #00f3ff; --bg: #050505; --dark-green: #002200; }
 
         * { box-sizing: border-box; cursor: crosshair !important; }
         body { background: var(--bg); color: var(--green); font-family: 'JetBrains Mono', monospace; margin: 0; height: 100vh; overflow: hidden; }
 
-        /* FIX AUTOFILL WHITE BOX */
+        /* FIX: ELIMINA EL CUADRO BLANCO DE OPERA/CHROME */
         input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus {
             -webkit-text-fill-color: #fff !important;
-            -webkit-box-shadow: 0 0 0px 1000px #0a1a0a inset !important;
+            -webkit-box-shadow: 0 0 0px 1000px #081008 inset !important;
             transition: background-color 5000s ease-in-out 0s;
         }
 
-        /* LOGIN OVERLAY */
-        #auth-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-        .auth-card { width: 400px; padding: 40px; border: 1px solid var(--green); background: rgba(0,10,0,0.9); box-shadow: 0 0 30px rgba(0,255,65,0.1); }
-        .auth-tab { display: none; }
-        .auth-tab.active { display: block; }
+        /* DISEÑO DE LA TERMINAL */
+        #terminal-ui { display: flex; flex-direction: column; height: 100vh; border: 1px solid var(--dark-green); padding: 10px; }
+        header { display: flex; justify-content: space-between; border-bottom: 1px solid var(--dark-green); padding-bottom: 5px; font-size: 12px; }
+        
+        #auth-screen { position: fixed; inset: 0; background: var(--bg); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+        .window { width: 400px; border: 1px solid var(--green); background: #000; padding: 30px; box-shadow: 0 0 20px rgba(0,255,65,0.1); }
+        .tab { display: none; } .tab.active { display: block; }
 
-        /* INPUTS Y BOTONES */
-        .input-group { margin-bottom: 15px; position: relative; }
-        input { width: 100%; background: #000 !important; border: 1px solid #004400; color: #fff !important; padding: 12px; font-family: 'JetBrains Mono'; outline: none; }
-        input:focus { border-color: var(--cyan); }
-        .auth-btn { width: 100%; background: transparent; border: 1px solid var(--green); color: var(--green); padding: 12px; cursor: pointer !important; font-weight: bold; margin-top: 10px; }
-        .auth-btn:hover { background: var(--green); color: #000; }
+        .input-line { margin-bottom: 20px; }
+        label { display: block; font-size: 10px; margin-bottom: 5px; color: var(--cyan); }
+        input { width: 100%; background: #000; border: none; border-bottom: 1px solid var(--dark-green); color: #fff; padding: 8px; font-family: 'JetBrains Mono'; outline: none; }
+        input:focus { border-color: var(--green); }
 
-        /* INTERFAZ DE CHAT */
-        #main-chat { display: none; flex-direction: column; height: 100vh; }
-        header { padding: 15px; border-bottom: 1px solid #111; display: flex; justify-content: space-between; font-size: 0.8rem; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
-        .msg-line { margin-bottom: 5px; }
-        .user-name { color: var(--cyan); font-weight: bold; }
-        .chat-input-area { padding: 20px; display: flex; gap: 10px; border-top: 1px solid #111; }
+        .btn { width: 100%; background: var(--green); color: #000; border: none; padding: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; transition: 0.3s; }
+        .btn:hover { background: #fff; box-shadow: 0 0 15px #fff; }
 
-        #canvas-bg { position: fixed; inset: 0; z-index: -1; opacity: 0.3; }
+        #chat-area { flex: 1; overflow-y: auto; padding: 20px 0; }
+        .msg { margin-bottom: 10px; font-size: 14px; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+        
+        .footer-input { border-top: 1px solid var(--dark-green); padding-top: 10px; display: flex; gap: 10px; }
+        #msg-input { flex: 1; border: 1px solid var(--dark-green); padding: 10px; }
     </style>
 </head>
 <body>
 
-    <canvas id="canvas-bg"></canvas>
-
-    <div id="auth-overlay">
-        <div class="auth-card">
-            <div id="login-tab" class="auth-tab active">
-                <h2 style="text-align:center; color:var(--cyan);">// ACCESO_NODO</h2>
-                <div class="input-group"><input type="text" id="log-user" placeholder="USUARIO"></div>
-                <div class="input-group"><input type="password" id="log-pass" placeholder="PASSWORD"></div>
-                <button class="auth-btn" onclick="login()">ENTRAR</button>
-                <p style="font-size:10px; text-align:center; margin-top:15px; cursor:pointer;" onclick="setTab('reg-tab')">REGISTRAR NODO</p>
+    <div id="auth-screen">
+        <div class="window">
+            <div id="login-tab" class="tab active">
+                <h2 style="font-size: 14px; margin-bottom: 25px;">// ACCESO_SISTEMA</h2>
+                <div class="input-line">
+                    <label>ID_USUARIO</label>
+                    <input type="text" id="l-user">
+                </div>
+                <div class="input-line">
+                    <label>PASSWORD</label>
+                    <input type="password" id="l-pass">
+                </div>
+                <button class="btn" onclick="login()">CONECTAR</button>
+                <p style="font-size: 9px; margin-top: 20px; text-align: center; cursor: pointer; opacity: 0.5;" onclick="toggleTab('reg-tab')">NUEVO NODO? REGISTRAR</p>
             </div>
 
-            <div id="reg-tab" class="auth-tab">
-                <h2 style="text-align:center; color:var(--cyan);">// CREAR_NODO</h2>
-                <div class="input-group"><input type="text" id="reg-user" placeholder="USUARIO"></div>
-                <div class="input-group"><input type="password" id="reg-p1" placeholder="PASSWORD (MIN 6)"></div>
-                <div class="input-group"><input type="password" id="reg-p2" placeholder="CONFIRMAR PASSWORD"></div>
-                <button class="auth-btn" onclick="register()">INICIALIZAR</button>
-                <p style="font-size:10px; text-align:center; margin-top:15px; cursor:pointer;" onclick="setTab('login-tab')">VOLVER AL LOGIN</p>
+            <div id="reg-tab" class="tab">
+                <h2 style="font-size: 14px; margin-bottom: 25px;">// CREAR_NODO</h2>
+                <div class="input-line">
+                    <label>USERNAME</label>
+                    <input type="text" id="r-user">
+                </div>
+                <div class="input-line">
+                    <label>PASSWORD</label>
+                    <input type="password" id="r-p1">
+                </div>
+                <div class="input-line">
+                    <label>CONFIRMAR_PASSWORD</label>
+                    <input type="password" id="r-p2">
+                </div>
+                <button class="btn" onclick="register()">INICIALIZAR</button>
+                <p style="font-size: 9px; margin-top: 20px; text-align: center; cursor: pointer; opacity: 0.5;" onclick="toggleTab('login-tab')">VOLVER AL ACCESO</p>
             </div>
         </div>
     </div>
 
-    <div id="main-chat">
+    <div id="terminal-ui">
         <header>
-            <div>NODO: <span id="user-tag"></span> | ESTADO: <span style="color:var(--green)">ONLINE</span></div>
-            <div onclick="logout()" style="cursor:pointer; color:red;">[ LOGOUT ]</div>
+            <div>CONECTADO // <span id="user-display" style="color:var(--cyan)">INVITADO</span></div>
+            <div style="color:red; cursor:pointer;" onclick="logout()">[ DESCONECTAR ]</div>
         </header>
 
-        <div id="messages"></div>
+        <div id="chat-area"></div>
 
-        <div class="chat-input-area">
-            <input type="text" id="chat-input" placeholder="Escribir comando o mensaje..." onkeypress="if(event.key==='Enter') sendMsg()">
-            <button class="auth-btn" style="width:auto; margin:0; padding:0 20px;" onclick="sendMsg()">></button>
+        <div class="footer-input">
+            <span style="padding: 10px;">></span>
+            <input type="text" id="msg-input" placeholder="Escribir comando..." onkeypress="if(event.key==='Enter') send()">
         </div>
     </div>
 
     <script>
-        // CONFIGURACIÓN
-        const firebaseConfig = { 
-            apiKey: "AIzaSyDpd6nFqhFZX9ucMdDe6m-YzW-L-HhJ_1E", 
-            authDomain: "espectro-chat.firebaseapp.com", 
-            databaseURL: "https://espectro-chat-default-rtdb.firebaseio.com", 
-            projectId: "espectro-chat" 
+        // CONFIGURACIÓN CON API KEY
+        const firebaseConfig = {
+            apiKey: "AIzaSyDpd6nFqhFZX9ucMdDe6m-YzW-L-HhJ_1E",
+            authDomain: "espectro-chat.firebaseapp.com",
+            databaseURL: "https://espectro-chat-default-rtdb.firebaseio.com",
+            projectId: "espectro-chat"
         };
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.database();
 
-        let currentUserData = null;
+        let myUser = null;
 
-        function setTab(id) {
-            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+        function toggleTab(id) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.getElementById(id).classList.add('active');
         }
 
         async function register() {
-            const user = document.getElementById('reg-user').value.trim();
-            const p1 = document.getElementById('reg-p1').value;
-            const p2 = document.getElementById('reg-p2').value;
-            if(!user || p1 !== p2 || p1.length < 6) return alert("Error en datos o contraseñas no coinciden.");
-            
+            const user = document.getElementById('r-user').value.trim();
+            const p1 = document.getElementById('r-p1').value;
+            const p2 = document.getElementById('r-p2').value;
+
+            if(!user || p1.length < 6) return alert("Error: Datos insuficientes.");
+            if(p1 !== p2) return alert("Error: Las contraseñas no coinciden.");
+
             const email = `${user.toLowerCase().replace(/\s/g, '')}@espectro.com`;
+
             try {
                 const res = await auth.createUserWithEmailAndPassword(email, p1);
-                await db.ref('users/' + res.user.uid).set({ username: user, rank: 'comun' });
+                await db.ref('users/' + res.user.uid).set({ username: user });
                 location.reload();
-            } catch(e) { alert("Error: " + e.message); }
+            } catch(e) { alert("ERROR: Nodo ya ocupado o parámetros inválidos."); }
         }
 
         async function login() {
-            const user = document.getElementById('log-user').value.trim();
-            const pass = document.getElementById('log-pass').value;
+            const user = document.getElementById('l-user').value.trim();
+            const pass = document.getElementById('l-pass').value;
             const email = `${user.toLowerCase().replace(/\s/g, '')}@espectro.com`;
-            try { await auth.signInWithEmailAndPassword(email, pass); } catch(e) { alert("Acceso Denegado"); }
+
+            try { await auth.signInWithEmailAndPassword(email, pass); }
+            catch(e) { alert("ERROR: Credenciales no válidas."); }
         }
 
         function logout() { auth.signOut().then(() => location.reload()); }
 
-        // MANEJO DE MENSAJES
-        function sendMsg() {
-            const inp = document.getElementById('chat-input');
-            if(inp.value.trim() && currentUserData) {
-                db.ref('messages').push({
-                    user: currentUserData.username,
-                    text: inp.value,
-                    time: Date.now()
-                });
+        function send() {
+            const inp = document.getElementById('msg-input');
+            if(inp.value.trim() && myUser) {
+                db.ref('messages').push({ user: myUser.username, text: inp.value });
                 inp.value = '';
             }
         }
 
-        db.ref('messages').limitToLast(50).on('child_added', snap => {
-            const d = snap.val();
-            const div = document.createElement('div');
-            div.className = 'msg-line';
-            div.innerHTML = `<span class="user-name">${d.user}:</span> <span style="color:#fff">${d.text}</span>`;
-            const box = document.getElementById('messages');
-            box.appendChild(div);
+        db.ref('messages').limitToLast(50).on('child_added', s => {
+            const d = s.val();
+            const msg = document.createElement('div');
+            msg.className = 'msg';
+            msg.innerHTML = `<span style="color:var(--cyan)">${d.user}:</span> <span style="color:#fff">${d.text}</span>`;
+            const box = document.getElementById('chat-area');
+            box.appendChild(msg);
             box.scrollTop = box.scrollHeight;
         });
 
         auth.onAuthStateChanged(async user => {
             if(user) {
                 const snap = await db.ref('users/' + user.uid).once('value');
-                currentUserData = snap.val();
-                document.getElementById('user-tag').innerText = currentUserData.username.toUpperCase();
-                document.getElementById('auth-overlay').style.display = 'none';
-                document.getElementById('main-chat').style.display = 'flex';
+                myUser = snap.val();
+                document.getElementById('user-display').innerText = myUser.username.toUpperCase();
+                document.getElementById('auth-screen').style.display = 'none';
             } else {
-                document.getElementById('auth-overlay').style.display = 'flex';
-                document.getElementById('main-chat').style.display = 'none';
+                document.getElementById('auth-screen').style.display = 'flex';
             }
         });
-
-        // ANIMACIÓN DE FONDO
-        const c = document.getElementById('canvas-bg'), ctx = c.getContext('2d');
-        c.width = window.innerWidth; c.height = window.innerHeight;
-        function draw() {
-            ctx.fillStyle = 'rgba(5,5,5,0.1)'; ctx.fillRect(0,0,c.width,c.height);
-            ctx.strokeStyle = '#00ff41'; ctx.strokeRect(Math.random()*c.width, Math.random()*c.height, 2, 2);
-            requestAnimationFrame(draw);
-        }
-        draw();
     </script>
 </body>
 </html>
