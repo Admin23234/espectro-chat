@@ -11,9 +11,10 @@
         :root { --green: #00ff41; --cyan: #00f3ff; --bg: #050505; --red: #ff3131; }
         body { background: var(--bg); color: var(--green); font-family: 'JetBrains Mono', monospace; margin: 0; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         
-        #loader { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .bar-container { width: 250px; height: 4px; background: #002200; margin-top: 15px; }
-        .bar-fill { width: 0%; height: 100%; background: var(--green); }
+        /* Loader Corregido */
+        #loader { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; visibility: visible; }
+        .bar-container { width: 250px; height: 4px; background: #002200; margin-top: 15px; border-radius: 2px; }
+        .bar-fill { width: 0%; height: 100%; background: var(--green); box-shadow: 0 0 10px var(--green); transition: width 0.1s linear; }
 
         #auth-overlay { position: fixed; inset: 0; background: #000; z-index: 1000; display: none; align-items: center; justify-content: center; }
         .auth-card { width: 320px; padding: 25px; border: 1px solid var(--green); background: #000; }
@@ -22,14 +23,13 @@
         #main-chat { display: none; flex-direction: column; height: 100vh; }
         header { padding: 10px 20px; border-bottom: 1px solid #111; display: flex; justify-content: space-between; font-size: 11px; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; }
-        .admin-tag { color: var(--red); border: 1px solid var(--red); padding: 0 4px; font-size: 9px; margin-right: 5px; }
-        .btn { background: none; border: 1px solid var(--green); color: var(--green); padding: 10px; cursor: pointer; width: 100%; }
+        .btn { background: none; border: 1px solid var(--green); color: var(--green); padding: 10px; cursor: pointer; width: 100%; font-family: 'JetBrains Mono'; }
     </style>
 </head>
 <body>
 
     <div id="loader">
-        <div style="letter-spacing: 3px;">ESPECTRO_OS_INIT</div>
+        <div style="letter-spacing: 3px; font-size: 14px;">ESPECTRO_OS_INIT</div>
         <div class="bar-container"><div class="bar-fill" id="bar"></div></div>
     </div>
 
@@ -68,33 +68,50 @@
 
         let esRegistro = false;
 
-        window.onload = () => {
+        // Iniciar pantalla de carga inmediatamente al cargar el script
+        (function startLoader() {
             let p = 0;
+            const bar = document.getElementById('bar');
             const interval = setInterval(() => {
-                p += 15; if(p > 100) p = 100;
-                document.getElementById('bar').style.width = p + '%';
-                if(p === 100) {
+                p += Math.floor(Math.random() * 5) + 2;
+                if (p > 100) p = 100;
+                bar.style.width = p + '%';
+                
+                if (p === 100) {
                     clearInterval(interval);
-                    document.getElementById('loader').style.display = 'none';
-                    if (!sessionStorage.getItem('active') && localStorage.getItem('exit') && (Date.now() - localStorage.getItem('exit')) > 300000) auth.signOut();
+                    setTimeout(() => {
+                        document.getElementById('loader').style.display = 'none';
+                        verificarSeguridad();
+                    }, 500);
                 }
-            }, 100);
-        };
+            }, 50);
+        })();
 
-        window.onbeforeunload = () => { if(auth.currentUser) localStorage.setItem('exit', Date.now()); };
+        function verificarSeguridad() {
+            const lastExit = localStorage.getItem('exit');
+            const activeSession = sessionStorage.getItem('active');
+            
+            // Si pasaron más de 5 min desde el último cierre, desloguear
+            if (!activeSession && lastExit && (Date.now() - parseInt(lastExit)) > 300000) {
+                auth.signOut();
+            }
+        }
+
+        window.onbeforeunload = () => { if(auth.currentUser) localStorage.setItem('exit', Date.now().toString()); };
 
         function toggleModo() {
             esRegistro = !esRegistro;
             document.getElementById('auth-title').innerText = esRegistro ? "// REGISTRO" : "// LOGIN";
+            document.getElementById('switch-text').innerText = esRegistro ? "YA TENGO CUENTA" : "¿NUEVO NODO? REGISTRAR";
         }
 
         async function ejecutarAuth() {
             const u = document.getElementById('log-user').value.trim().toLowerCase();
             const p = document.getElementById('log-pass').value;
-            // Usamos el usuario directamente como email falso para Firebase
-            const pseudoEmail = u + "@terminal.local"; 
-            
+            if(!u || p.length < 6) return alert("Datos inválidos.");
+
             try {
+                const pseudoEmail = u + "@terminal.local"; 
                 if(esRegistro) {
                     const res = await auth.createUserWithEmailAndPassword(pseudoEmail, p);
                     await db.ref('users/' + res.user.uid).set({ username: u, role: 'user' });
@@ -102,11 +119,12 @@
                     await auth.signInWithEmailAndPassword(pseudoEmail, p);
                 }
                 sessionStorage.setItem('active', 'true');
-            } catch(e) { alert("ERROR DE ACCESO"); }
+            } catch(e) { alert("ERROR: Acceso fallido."); }
         }
 
         function logout() {
-            sessionStorage.clear(); localStorage.removeItem('exit');
+            sessionStorage.clear();
+            localStorage.removeItem('exit');
             auth.signOut().then(() => location.reload());
         }
 
@@ -123,8 +141,8 @@
                     db.ref('messages').push({
                         user: user.username,
                         text: val,
-                        role: user.role,
-                        time: Date.now() // Requerido por tus reglas de seguridad
+                        role: user.role || 'user',
+                        time: Date.now()
                     });
                 }
                 inp.value = '';
@@ -137,7 +155,8 @@
             snap.forEach(child => {
                 const m = child.val();
                 const div = document.createElement('div');
-                const tag = m.role === 'admin' ? '<span class="admin-tag">ADMIN</span>' : '';
+                div.style.marginBottom = "8px";
+                const tag = m.role === 'admin' ? '<span style="color:var(--red); border:1px solid var(--red); font-size:9px; padding:0 3px; margin-right:5px;">ADMIN</span>' : '';
                 div.innerHTML = `${tag}<b style="color:var(--cyan)">${m.user}:</b> <span style="color:#fff">${m.text}</span>`;
                 box.appendChild(div);
             });
@@ -145,11 +164,14 @@
         });
 
         auth.onAuthStateChanged(user => {
-            if(user && sessionStorage.getItem('active')) {
+            const hasAccess = sessionStorage.getItem('active');
+            if(user && hasAccess) {
                 db.ref('users/' + user.uid).on('value', s => {
-                    document.getElementById('display-name').innerText = s.val().username.toUpperCase();
-                    document.getElementById('auth-overlay').style.display = 'none';
-                    document.getElementById('main-chat').style.display = 'flex';
+                    if(s.val()){
+                        document.getElementById('display-name').innerText = s.val().username.toUpperCase();
+                        document.getElementById('auth-overlay').style.display = 'none';
+                        document.getElementById('main-chat').style.display = 'flex';
+                    }
                 });
             } else {
                 document.getElementById('auth-overlay').style.display = 'flex';
