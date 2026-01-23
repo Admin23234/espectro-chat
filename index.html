@@ -15,6 +15,9 @@
         .bar-container { width: 200px; height: 2px; background: #111; margin-top: 15px; }
         .bar-fill { width: 0%; height: 100%; background: var(--green); }
 
+        /* Pantalla de Baneo */
+        #ban-overlay { position: fixed; inset: 0; background: #800000; color: #fff; z-index: 10000; display: none; align-items: center; justify-content: center; flex-direction: column; text-align: center; padding: 20px; }
+
         #auth-overlay { position: fixed; inset: 0; background: #000; z-index: 1000; display: none; align-items: center; justify-content: center; }
         .auth-card { width: 300px; padding: 30px; border: 1px solid var(--green); background: #000; }
         input { width: 100%; background: #000; border: 1px solid #004400; color: #fff; padding: 12px; font-family: 'JetBrains Mono'; outline: none; margin-bottom: 10px; box-sizing: border-box; }
@@ -27,6 +30,12 @@
     </style>
 </head>
 <body>
+
+    <div id="ban-overlay">
+        <h1 style="font-size: 40px;">ACCESO DENEGADO</h1>
+        <p id="ban-msg">Tu dispositivo ha sido bloqueado por violar los protocolos.</p>
+        <p id="ban-time" style="color: var(--cyan);"></p>
+    </div>
 
     <div id="loader">
         <div style="letter-spacing: 5px; font-size: 12px;">ESPECTRO_SYSTEM_BOOT</div>
@@ -50,7 +59,7 @@
         </header>
         <div id="messages"></div>
         <div style="padding:15px; display:flex; gap:10px;">
-            <input type="text" id="msg-input" placeholder="Mensaje..." onkeypress="if(event.key==='Enter') enviar()">
+            <input type="text" id="msg-input" placeholder="Escribe mensaje o /ban usuario dias" onkeypress="if(event.key==='Enter') enviar()">
             <button class="btn" style="width:auto; padding:0 20px;" onclick="enviar()">></button>
         </div>
     </div>
@@ -66,9 +75,13 @@
         const auth = firebase.auth();
         const db = firebase.database();
 
+        // Generar una ID de dispositivo simple (Fingerprint)
+        const getDeviceId = () => {
+            return btoa(navigator.userAgent + navigator.language).substring(0, 20);
+        };
+
         let modoRegistro = false;
 
-        // 1. Pantalla de carga y Reset de seguridad
         window.onload = () => {
             let p = 0;
             const bar = document.getElementById('bar');
@@ -78,27 +91,29 @@
                 if(p >= 100) {
                     clearInterval(interval);
                     document.getElementById('loader').style.display = 'none';
-                    
-                    // Lógica de deslogueo por tiempo o por pestaña nueva
-                    const exit = localStorage.getItem('exit_time');
-                    const sessionKey = sessionStorage.getItem('active_session');
-                    
-                    if (auth.currentUser && !sessionKey) {
-                        // Si hay usuario pero la pestaña es nueva, verificamos tiempo de gracia
-                        if (exit && (Date.now() - parseInt(exit)) > 300000) {
-                            await auth.signOut(); // Pasaron 5 min: Fuera.
-                        } else if (exit) {
-                            sessionStorage.setItem('active_session', 'true'); // Menos de 5 min: Recupera acceso.
-                        } else {
-                            await auth.signOut(); // No hay registro previo: Seguridad.
-                        }
-                    }
-                    actualizarInterfaz();
+                    checkBanStatus();
                 }
             }, 50);
         };
 
-        window.onbeforeunload = () => { if(auth.currentUser) localStorage.setItem('exit_time', Date.now().toString()); };
+        // Verificar si el dispositivo está baneado
+        async function checkBanStatus() {
+            const devId = getDeviceId();
+            const snapshot = await db.ref('banned_devices/' + devId).once('value');
+            if (snapshot.exists()) {
+                const until = snapshot.val().until;
+                if (Date.now() < until) {
+                    document.getElementById('ban-overlay').style.display = 'flex';
+                    document.getElementById('ban-time').innerText = "Expira en: " + new Date(until).toLocaleString();
+                    return true;
+                } else {
+                    // El baneo ya expiró, lo borramos
+                    await db.ref('banned_devices/' + devId).remove();
+                }
+            }
+            actualizarInterfaz();
+            return false;
+        }
 
         function cambiarModo() {
             modoRegistro = !modoRegistro;
@@ -106,33 +121,70 @@
         }
 
         async function procesarAcceso() {
+            if (await checkBanStatus()) return;
             const u = document.getElementById('user').value.trim().toLowerCase();
             const p = document.getElementById('pass').value;
-            if(!u || p.length < 6) return alert("Datos insuficientes.");
+            const devId = getDeviceId();
 
             try {
-                // Aseguramos que no haya rastro de sesión previa antes de intentar entrar
-                if(auth.currentUser) await auth.signOut();
-                
                 const email = u + "@terminal.local";
                 if(modoRegistro) {
                     const res = await auth.createUserWithEmailAndPassword(email, p);
-                    await db.ref('users/' + res.user.uid).set({ username: u, role: 'user' });
+                    await db.ref('users/' + res.user.uid).set({ username: u, role: 'user', devId: devId });
                 } else {
-                    await auth.signInWithEmailAndPassword(email, p);
+                    const res = await auth.signInWithEmailAndPassword(email, p);
+                    await db.ref('users/' + res.user.uid).update({ devId: devId });
                 }
-                
                 sessionStorage.setItem('active_session', 'true');
                 actualizarInterfaz();
-            } catch(e) { alert("ERROR: Credenciales no válidas o usuario existente."); }
+            } catch(e) { alert("ERROR DE ACCESO"); }
+        }
+
+        async function enviar() {
+            const inp = document.getElementById('msg-input');
+            const val = inp.value.trim();
+            if(!val || !auth.currentUser) return;
+
+            const snap = await db.ref('users/' + auth.currentUser.uid).once('value');
+            const me = snap.val();
+            const isAdmin = me.role === 'admin' || me.username === 'admin';
+
+            // COMANDO /BAN (Uso: /ban nombre_usuario dias)
+            if (val.startsWith('/ban ') && isAdmin) {
+                const parts = val.split(' ');
+                const targetName = parts[1];
+                const days = parseInt(parts[2]) || 1;
+
+                // Buscar al usuario por nombre para obtener su devId
+                const usersSnap = await db.ref('users').once('value');
+                let targetDevId = null;
+                usersSnap.forEach(uSnap => {
+                    if (uSnap.val().username === targetName) targetDevId = uSnap.val().devId;
+                });
+
+                if (targetDevId) {
+                    const until = Date.now() + (days * 24 * 60 * 60 * 1000);
+                    await db.ref('banned_devices/' + targetDevId).set({ until: until, bannedUser: targetName });
+                    db.ref('messages').push({ user: 'SISTEMA', text: `USUARIO ${targetName.toUpperCase()} BANEADO POR ${days} DÍA(S).`, role: 'admin' });
+                } else {
+                    alert("Usuario no encontrado o nunca se ha conectado.");
+                }
+                inp.value = '';
+                return;
+            }
+
+            if(val === "/clear" && isAdmin) {
+                db.ref('messages').remove();
+            } else {
+                db.ref('messages').push({ user: me.username, text: val, role: me.role || 'user', time: Date.now() });
+            }
+            inp.value = '';
         }
 
         function actualizarInterfaz() {
             const user = auth.currentUser;
-            const hasKey = sessionStorage.getItem('active_session');
-            
-            if(user && hasKey) {
-                db.ref('users/' + user.uid).once('value', s => {
+            if(user && sessionStorage.getItem('active_session')) {
+                db.ref('users/' + user.uid).on('value', s => {
                     if(s.val()) {
                         document.getElementById('display-name').innerText = s.val().username.toUpperCase();
                         document.getElementById('auth-overlay').style.display = 'none';
@@ -147,35 +199,14 @@
 
         function cerrarSesion() {
             sessionStorage.removeItem('active_session');
-            localStorage.removeItem('exit_time');
             auth.signOut().then(() => location.reload());
-        }
-
-        function enviar() {
-            const inp = document.getElementById('msg-input');
-            if(!inp.value.trim() || !auth.currentUser) return;
-
-            db.ref('users/' + auth.currentUser.uid).once('value', s => {
-                const user = s.val();
-                if(inp.value === "/clear" && (user.role === 'admin' || user.username === 'admin')) {
-                    db.ref('messages').remove();
-                } else {
-                    db.ref('messages').push({
-                        user: user.username,
-                        text: inp.value,
-                        role: user.role || 'user',
-                        time: Date.now()
-                    });
-                }
-                inp.value = '';
-            });
         }
 
         db.ref('messages').on('value', snap => {
             const box = document.getElementById('messages');
             box.innerHTML = '';
             snap.forEach(c => {
-                const m = child = c.val();
+                const m = c.val();
                 const div = document.createElement('div');
                 const tag = m.role === 'admin' ? '<span style="color:var(--red); border:1px solid var(--red); font-size:9px; padding:0 3px; margin-right:5px;">ADMIN</span>' : '';
                 div.innerHTML = `${tag}<b style="color:var(--cyan)">${m.user}:</b> <span style="color:#fff">${m.text}</span>`;
@@ -183,8 +214,6 @@
             });
             box.scrollTop = box.scrollHeight;
         });
-
-        auth.onAuthStateChanged(() => actualizarInterfaz());
     </script>
 </body>
 </html>
