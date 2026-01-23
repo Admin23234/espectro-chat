@@ -16,20 +16,24 @@
         * { box-sizing: border-box; cursor: crosshair !important; }
         body { background: var(--bg); color: var(--green); font-family: 'JetBrains Mono', monospace; margin: 0; overflow: hidden; }
 
-        /* --- PANTALLA DE CARGA INICIAL --- */
+        /* --- SOLUCIÓN ERROR VISUAL (AUTOFILL) --- */
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus {
+            -webkit-text-fill-color: white !important;
+            -webkit-box-shadow: 0 0 0px 1000px #0a1a0a inset !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
+
+        /* --- PANTALLA DE CARGA --- */
         #loading-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center; transition: 0.8s; }
         #loader-console { border-left: 2px solid var(--green); padding: 10px; font-size: 0.8rem; background: rgba(0,255,65,0.05); }
 
-        /* --- ANIMACIONES DE LA TARJETA --- */
-        #auth-overlay {
-            position: absolute; inset: 0; background: rgba(0,0,0,0.85); 
-            backdrop-filter: blur(15px); z-index: 500; display: flex; align-items: center; justify-content: center;
-        }
+        /* --- ANIMACIONES --- */
+        #auth-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(15px); z-index: 500; display: flex; align-items: center; justify-content: center; }
         .auth-card {
-            background: rgba(0, 10, 0, 0.98); width: 420px; padding: 40px;
-            border: 1px solid var(--green); box-shadow: 0 0 60px rgba(0,255,65,0.2);
-            position: relative; overflow: hidden;
-            animation: cardEntrance 0.7s cubic-bezier(0.23, 1, 0.32, 1);
+            background: rgba(0, 10, 0, 0.98); width: 420px; padding: 40px; border: 1px solid var(--green);
+            box-shadow: 0 0 60px rgba(0,255,65,0.2); animation: cardEntrance 0.7s cubic-bezier(0.23, 1, 0.32, 1);
         }
         @keyframes cardEntrance {
             0% { opacity: 0; transform: scale(0.8) translateY(100px); filter: blur(10px); }
@@ -40,35 +44,20 @@
         .auth-tab.active { display: block; animation: tabSlide 0.4s ease-out; }
         @keyframes tabSlide { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 
-        /* --- INPUTS Y ICONOS --- */
         .input-group { position: relative; margin-bottom: 20px; }
         input {
             width: 100%; background: rgba(0,255,65,0.05) !important; border: 1px solid #003b00;
-            color: white !important; padding: 12px; outline: none; font-family: 'JetBrains Mono'; transition: 0.3s;
+            color: white !important; padding: 12px; outline: none; font-family: 'JetBrains Mono';
         }
-        input:focus { border-color: var(--cyan); box-shadow: 0 0 15px rgba(0,243,255,0.2); background: rgba(0,255,65,0.1) !important; }
+        input:focus { border-color: var(--cyan); box-shadow: 0 0 15px rgba(0,243,255,0.2); }
         
-        .eye-btn {
-            position: absolute; right: 12px; top: 12px; cursor: pointer !important;
-            font-size: 1.2rem; opacity: 0.5; transition: 0.3s; user-select: none;
-        }
-        .eye-btn:hover { opacity: 1; color: var(--cyan); }
+        .eye-btn { position: absolute; right: 12px; top: 12px; cursor: pointer !important; font-size: 1.2rem; opacity: 0.5; user-select: none; }
+        .auth-btn { width: 100%; background: transparent; border: 1px solid var(--green); color: var(--green); padding: 12px; font-weight: bold; margin-top: 10px; transition: 0.3s; text-transform: uppercase; }
+        .auth-btn:hover { background: var(--green); color: black; box-shadow: 0 0 25px var(--green); }
 
-        .auth-btn {
-            width: 100%; background: transparent; border: 1px solid var(--green);
-            color: var(--green); padding: 12px; font-weight: bold; margin-top: 10px;
-            transition: 0.3s; text-transform: uppercase; letter-spacing: 2px;
-        }
-        .auth-btn:hover { background: var(--green); color: black; box-shadow: 0 0 25px var(--green); transform: translateY(-2px); }
-
-        /* --- RANGOS --- */
-        .badge { font-size: 9px; padding: 2px 6px; border-radius: 2px; margin-right: 8px; text-transform: uppercase; font-weight: bold; vertical-align: middle; }
-        .badge-owner { background: var(--owner); color: white; box-shadow: 0 0 10px var(--owner); }
-        .badge-admin { background: var(--admin); color: black; }
-        .badge-mod { background: var(--mod); color: white; }
-        .badge-destacado { border: 1px solid var(--destacado); color: var(--destacado); }
-        .badge-comun { color: var(--comun); border: 1px solid #333; }
-
+        .badge { font-size: 9px; padding: 2px 6px; border-radius: 2px; margin-right: 8px; text-transform: uppercase; font-weight: bold; }
+        .badge-owner { background: var(--owner); color: white; }
+        
         #main-content { display: none; flex-direction: column; min-height: 100vh; }
         #canvas-bg { position: fixed; inset: 0; z-index: -1; }
     </style>
@@ -76,7 +65,7 @@
 <body>
 
     <div id="loading-screen">
-        <div id="loader-console">> INICIALIZANDO NÚCLEO...<br>> CARGANDO FIREBASE_AUTH...<br>> ESTADO: LISTO</div>
+        <div id="loader-console">> NÚCLEO_ESPECTRO CARGADO...<br>> ESPERANDO AUTENTICACIÓN...</div>
     </div>
 
     <div id="main-content">
@@ -85,50 +74,46 @@
         <div id="auth-overlay">
             <div class="auth-card">
                 <div id="login-tab" class="auth-tab active">
-                    <h2 style="color:var(--cyan); text-align:center; letter-spacing:5px;">// ACCESO_SISTEMA</h2>
+                    <h2 style="color:var(--cyan); text-align:center;">// ACCESO_NODO</h2>
                     <div class="input-group">
-                        <input type="email" id="log-email" placeholder="EMAIL_ADDRESS" autocomplete="off">
+                        <input type="text" id="log-user-email" placeholder="USUARIO o EMAIL">
                     </div>
                     <div class="input-group">
                         <input type="password" id="log-pass" placeholder="PASSWORD">
                         <span class="eye-btn" onclick="togglePass('log-pass')">👁</span>
                     </div>
                     <button class="auth-btn" onclick="login()">ENTRAR</button>
-                    <p style="font-size:10px; text-align:center; margin-top:20px; cursor:pointer;" onclick="setTab('reg-tab')">¿NUEVO NODO? REGÍSTRATE AQUÍ</p>
+                    <p style="font-size:10px; text-align:center; margin-top:20px; cursor:pointer;" onclick="setTab('reg-tab')">¿NUEVO? REGISTRAR NODO</p>
                 </div>
 
                 <div id="reg-tab" class="auth-tab">
-                    <h2 style="color:var(--cyan); text-align:center; letter-spacing:5px;">// CREAR_NODO</h2>
+                    <h2 style="color:var(--cyan); text-align:center;">// CREAR_NODO</h2>
                     <div class="input-group">
-                        <input type="text" id="reg-user" placeholder="USERNAME" autocomplete="off">
+                        <input type="text" id="reg-user" placeholder="USERNAME (Obligatorio)">
                     </div>
                     <div class="input-group">
-                        <input type="email" id="reg-email" placeholder="EMAIL_ADDRESS" autocomplete="off">
+                        <input type="email" id="reg-email" placeholder="EMAIL (Opcional)">
                     </div>
                     <div class="input-group">
-                        <input type="password" id="reg-p1" placeholder="CHOOSE_PASSWORD">
+                        <input type="password" id="reg-p1" placeholder="PASSWORD">
                         <span class="eye-btn" onclick="togglePass('reg-p1')">👁</span>
                     </div>
-                    <div class="input-group">
-                        <input type="password" id="reg-p2" placeholder="CONFIRM_PASSWORD">
-                        <span class="eye-btn" onclick="togglePass('reg-p2')">👁</span>
-                    </div>
                     <button class="auth-btn" onclick="register()">INICIALIZAR</button>
-                    <p style="font-size:10px; text-align:center; margin-top:20px; cursor:pointer;" onclick="setTab('login-tab')">YA TENGO CUENTA - VOLVER</p>
+                    <p style="font-size:10px; text-align:center; margin-top:20px; cursor:pointer;" onclick="setTab('login-tab')">VOLVER AL LOGIN</p>
                 </div>
             </div>
         </div>
 
-        <nav style="display:flex; justify-content:space-between; padding:20px; border-bottom:1px solid var(--green); background:rgba(0,0,0,0.8);">
+        <nav style="display:flex; justify-content:space-between; padding:20px; border-bottom:1px solid var(--green);">
             <div id="user-display" style="font-size:12px;"></div>
             <button class="auth-btn" style="width:auto; padding:5px 15px; margin:0; font-size:10px;" onclick="logout()">LOGOUT</button>
         </nav>
 
         <div style="display:flex; justify-content:space-around; align-items:center; flex:1; padding:20px;">
-            <div style="width:500px; height:75vh; border:1px solid var(--green); background:rgba(0,0,0,0.9); display:flex; flex-direction:column; box-shadow: 0 0 30px rgba(0,255,65,0.1);">
+            <div style="width:500px; height:75vh; border:1px solid var(--green); background:rgba(0,0,0,0.9); display:flex; flex-direction:column;">
                 <div id="messages" style="flex:1; padding:20px; overflow-y:auto;"></div>
                 <div style="padding:15px; border-top:1px solid var(--green); display:flex; gap:10px;">
-                    <input type="text" id="msg-input" placeholder="Escribir comando..." style="flex:1; margin:0; background:transparent !important;">
+                    <input type="text" id="msg-input" placeholder="Mensaje..." style="flex:1; background:transparent !important;">
                     <button class="auth-btn" style="width:auto; margin:0; padding:0 20px;" onclick="send()">></button>
                 </div>
             </div>
@@ -136,7 +121,6 @@
     </div>
 
     <script>
-        // CONFIGURACIÓN (REMPLAZA CON TU INFO DE FIREBASE)
         const firebaseConfig = { 
             apiKey: "AIzaSyDpd6nFqhFZX9ucMdDe6m-YzW-LHhJ_1E", 
             authDomain: "espectro-chat.firebaseapp.com", 
@@ -160,36 +144,37 @@
         }
 
         async function register() {
-            const name = document.getElementById('reg-user').value;
-            const email = document.getElementById('reg-email').value;
+            const name = document.getElementById('reg-user').value.trim();
+            let email = document.getElementById('reg-email').value.trim();
             const p1 = document.getElementById('reg-p1').value;
-            const p2 = document.getElementById('reg-p2').value;
 
-            if(p1 !== p2) return alert("Las contraseñas no coinciden");
-            if(name.length < 3) return alert("Nombre muy corto");
+            if(!name || p1.length < 6) return alert("Nombre obligatorio y contraseña mín. 6 caracteres");
+
+            // Si el correo está vacío, generamos uno falso para Firebase
+            if(!email) email = `${name.toLowerCase()}@espectro.com`;
 
             try {
                 const res = await auth.createUserWithEmailAndPassword(email, p1);
-                await db.ref('users/' + res.user.uid).set({
-                    username: name,
-                    rank: 'comun' // Rango por defecto
-                });
+                await db.ref('users/' + res.user.uid).set({ username: name, email: email, rank: 'comun' });
                 await res.user.updateProfile({ displayName: name });
                 location.reload();
-            } catch(e) { alert("ERROR DE REGISTRO: " + e.message); }
+            } catch(e) { alert("ERROR: El nombre o correo ya podrían estar en uso."); }
         }
 
         async function login() {
-            const email = document.getElementById('log-email').value;
+            let input = document.getElementById('log-user-email').value.trim();
             const pass = document.getElementById('log-pass').value;
+            
+            // Si no ingresó un correo real, intentamos con el formato automático
+            let email = input.includes('@') ? input : `${input.toLowerCase()}@espectro.com`;
+
             try { await auth.signInWithEmailAndPassword(email, pass); } 
-            catch(e) { alert("ACCESO DENEGADO: " + e.message); }
+            catch(e) { alert("ACCESO DENEGADO"); }
         }
 
         function logout() { auth.signOut().then(() => location.reload()); }
 
         auth.onAuthStateChanged(async user => {
-            // Animación de salida del loader
             setTimeout(() => {
                 document.getElementById('loading-screen').style.opacity = '0';
                 setTimeout(() => document.getElementById('loading-screen').style.display = 'none', 800);
@@ -200,13 +185,12 @@
                 userData = snap.val();
                 document.getElementById('auth-overlay').style.display = 'none';
                 document.getElementById('main-content').style.display = 'flex';
-                document.getElementById('user-display').innerHTML = `ID: ${userData.username.toUpperCase()} | RANGO: <span style="color:var(--${userData.rank})">${userData.rank.toUpperCase()}</span>`;
-                initAnim();
+                document.getElementById('user-display').innerHTML = `NODO: ${userData.username.toUpperCase()} | RANGO: <span style="color:var(--${userData.rank})">${userData.rank.toUpperCase()}</span>`;
             } else {
                 document.getElementById('auth-overlay').style.display = 'flex';
                 document.getElementById('main-content').style.display = 'flex';
-                initAnim();
             }
+            initAnim();
         });
 
         function send() {
@@ -224,11 +208,10 @@
 
         db.ref("messages").limitToLast(30).on("child_added", s => {
             const d = s.val();
-            const badge = `<span class="badge badge-${d.rank}">${d.rank}</span>`;
             document.getElementById('messages').innerHTML += `
-                <div style="margin-bottom:15px; animation: tabSlide 0.3s ease;">
-                    ${badge} <b style="color:var(--cyan)">${d.user}:</b> 
-                    <span style="color:white; word-wrap: break-word;">${d.text}</span>
+                <div style="margin-bottom:15px;">
+                    <span class="badge badge-${d.rank}">${d.rank}</span> 
+                    <b style="color:var(--cyan)">${d.user}:</b> <span style="color:white">${d.text}</span>
                 </div>`;
             document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
         });
@@ -237,15 +220,11 @@
             const c = document.getElementById('canvas-bg'), ctx = c.getContext('2d');
             c.width = window.innerWidth; c.height = window.innerHeight;
             let sqs = [];
-            for(let i=0; i<60; i++) sqs.push({ x: Math.random()*c.width, y: Math.random()*c.height, s: Math.random()*10+5, vx: (Math.random()-0.5), vy: (Math.random()-0.5) });
+            for(let i=0; i<50; i++) sqs.push({ x: Math.random()*c.width, y: Math.random()*c.height, s: 10, vx: 0.5, vy: 0.5 });
             function loop() {
                 ctx.fillStyle = 'rgba(5,5,5,0.2)'; ctx.fillRect(0,0,c.width,c.height);
-                ctx.strokeStyle = 'rgba(0,255,65,0.15)';
-                sqs.forEach(s => {
-                    s.x += s.vx; s.y += s.vy;
-                    if(s.x<0||s.x>c.width) s.vx*=-1; if(s.y<0||s.y>c.height) s.vy*=-1;
-                    ctx.strokeRect(s.x, s.y, s.s, s.s);
-                });
+                ctx.strokeStyle = 'rgba(0,255,65,0.1)';
+                sqs.forEach(s => { s.x+=s.vx; s.y+=s.vy; if(s.x>c.width) s.x=0; if(s.y>c.height) s.y=0; ctx.strokeRect(s.x, s.y, s.s, s.s); });
                 requestAnimationFrame(loop);
             }
             loop();
