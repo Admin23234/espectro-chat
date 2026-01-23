@@ -72,27 +72,25 @@
 
         let modoRegistro = false;
 
-        // 1. Pantalla de carga corregida
-        window.addEventListener('load', () => {
+        // 1. Pantalla de carga
+        window.addEventListener('DOMContentLoaded', () => {
             let p = 0;
             const bar = document.getElementById('bar');
             const interval = setInterval(() => {
-                p += Math.floor(Math.random() * 10) + 5;
-                if(p >= 100) {
-                    p = 100;
-                    clearInterval(interval);
-                    setTimeout(() => {
-                        document.getElementById('loader').style.display = 'none';
-                        validarSeguridadSesion();
-                    }, 400);
-                }
+                p += 5;
                 bar.style.width = p + '%';
-            }, 80);
+                if(p >= 100) {
+                    clearInterval(interval);
+                    document.getElementById('loader').style.display = 'none';
+                    validarSeguridadSesion();
+                }
+            }, 50);
         });
 
         function validarSeguridadSesion() {
             const exit = localStorage.getItem('exit_time');
             const sessionActive = sessionStorage.getItem('active_session');
+            // Si no hay sesión activa en la pestaña Y pasaron 5 min, cerrar sesión real
             if (!sessionActive && exit && (Date.now() - parseInt(exit)) > 300000) {
                 auth.signOut();
             }
@@ -100,30 +98,37 @@
 
         window.onbeforeunload = () => { if(auth.currentUser) localStorage.setItem('exit_time', Date.now().toString()); };
 
-        // 2. Lógica de Cambio de Modo (Arreglado)
         function cambiarModo() {
             modoRegistro = !modoRegistro;
             document.getElementById('auth-title').innerText = modoRegistro ? "// REGISTRO" : "// LOGIN";
             document.getElementById('main-btn').innerText = modoRegistro ? "CREAR CUENTA" : "ENTRAR";
-            document.getElementById('toggle-link').innerText = modoRegistro ? "YA TENGO CUENTA - VOLVER" : "¿NUEVO NODO? REGISTRAR AQUÍ";
+            document.getElementById('toggle-link').innerText = modoRegistro ? "VOLVER AL LOGIN" : "¿NUEVO NODO? REGISTRAR AQUÍ";
         }
 
-        // 3. Registro e Inicio de Sesión (Arreglado)
+        // 2. Proceso de Acceso Corregido
         async function procesarAcceso() {
             const u = document.getElementById('user').value.trim().toLowerCase();
             const p = document.getElementById('pass').value;
-            if(!u || p.length < 6) return alert("Usuario requerido / Password min 6 caracteres.");
+            if(!u || p.length < 6) return alert("Usuario requerido / Password min 6 carac.");
 
             const email = u + "@terminal.local";
             try {
+                // Primero configuramos que la sesión sea persistente localmente
+                await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+                
                 if(modoRegistro) {
                     const res = await auth.createUserWithEmailAndPassword(email, p);
                     await db.ref('users/' + res.user.uid).set({ username: u, role: 'user' });
                 } else {
                     await auth.signInWithEmailAndPassword(email, p);
                 }
+                
+                // IMPORTANTE: Marcamos la pestaña como activa ANTES de que el observador actúe
                 sessionStorage.setItem('active_session', 'true');
-            } catch(e) { alert("ERROR: " + e.message); }
+                
+            } catch(e) { 
+                alert("ERROR: Datos incorrectos o usuario ya existe."); 
+            }
         }
 
         function cerrarSesion() {
@@ -132,7 +137,6 @@
             auth.signOut().then(() => location.reload());
         }
 
-        // 4. Chat y Mensajes
         function enviar() {
             const inp = document.getElementById('msg-input');
             const txt = inp.value.trim();
@@ -140,16 +144,14 @@
 
             db.ref('users/' + auth.currentUser.uid).once('value', s => {
                 const user = s.val();
-                const isAdmin = user.role === 'admin' || user.username === 'admin';
-
-                if(txt === "/clear" && isAdmin) {
+                if(txt === "/clear" && (user.role === 'admin' || user.username === 'admin')) {
                     db.ref('messages').remove();
                 } else if(txt !== "/clear") {
                     db.ref('messages').push({
                         user: user.username,
                         text: txt,
                         role: user.role || 'user',
-                        time: Date.now() // Cumple regla de seguridad
+                        time: Date.now()
                     });
                 }
                 inp.value = '';
@@ -170,9 +172,11 @@
             box.scrollTop = box.scrollHeight;
         });
 
+        // 3. Observador de Estado (Blindado)
         auth.onAuthStateChanged(user => {
-            const active = sessionStorage.getItem('active_session');
-            if(user && active) {
+            const hasTabAccess = sessionStorage.getItem('active_session');
+            
+            if(user && hasTabAccess) {
                 db.ref('users/' + user.uid).on('value', s => {
                     if(s.val()) {
                         document.getElementById('display-name').innerText = s.val().username.toUpperCase();
@@ -181,6 +185,7 @@
                     }
                 });
             } else {
+                // Si hay un usuario pero no tiene "llave" de pestaña, lo mostramos fuera
                 document.getElementById('auth-overlay').style.display = 'flex';
                 document.getElementById('main-chat').style.display = 'none';
             }
