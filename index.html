@@ -11,29 +11,26 @@
         :root { --green: #00ff41; --cyan: #00f3ff; --bg: #050505; --red: #ff3131; }
         body { background: var(--bg); color: var(--green); font-family: 'JetBrains Mono', monospace; margin: 0; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         
-        /* Pantalla de Carga */
         #loader { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .bar-container { width: 200px; height: 2px; background: #002200; margin-top: 15px; }
-        .bar-fill { width: 0%; height: 100%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+        .bar-container { width: 200px; height: 2px; background: #111; margin-top: 15px; }
+        .bar-fill { width: 0%; height: 100%; background: var(--green); transition: width 0.1s; }
 
-        /* Auth Overlay */
         #auth-overlay { position: fixed; inset: 0; background: #000; z-index: 1000; display: none; align-items: center; justify-content: center; }
-        .auth-card { width: 300px; padding: 30px; border: 1px solid var(--green); background: #000; text-align: center; }
+        .auth-card { width: 300px; padding: 30px; border: 1px solid var(--green); background: #000; box-shadow: 0 0 20px rgba(0,255,65,0.1); }
         input { width: 100%; background: #000; border: 1px solid #004400; color: #fff; padding: 12px; font-family: 'JetBrains Mono'; outline: none; margin-bottom: 10px; box-sizing: border-box; }
         .btn { width: 100%; background: transparent; border: 1px solid var(--green); color: var(--green); padding: 12px; cursor: pointer; font-family: 'JetBrains Mono'; font-weight: bold; }
         .btn:hover { background: var(--green); color: #000; }
 
-        /* Main Chat */
         #main-chat { display: none; flex-direction: column; height: 100vh; }
         header { padding: 10px 20px; border-bottom: 1px solid #111; display: flex; justify-content: space-between; font-size: 11px; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px; }
+        #messages { flex: 1; overflow-y: auto; padding: 20px; border-bottom: 1px solid #111; }
         .msg { margin-bottom: 8px; font-size: 14px; }
     </style>
 </head>
 <body>
 
     <div id="loader">
-        <div style="letter-spacing: 5px; font-size: 12px;">ESPECTRO_OS_INIT</div>
+        <div style="letter-spacing: 5px; font-size: 12px;">ESPECTRO_SYSTEM_BOOT</div>
         <div class="bar-container"><div class="bar-fill" id="bar"></div></div>
     </div>
 
@@ -50,10 +47,10 @@
     <div id="main-chat">
         <header>
             <div>NODO: <span id="display-name" style="color:var(--cyan)">...</span></div>
-            <button onclick="cerrarSesion()" style="color:var(--red); background:none; border:none; cursor:pointer; font-family: inherit;">[ DISCONNECT ]</button>
+            <button onclick="cerrarSesion()" style="color:var(--red); background:none; border:none; cursor:pointer;">[ DISCONNECT ]</button>
         </header>
         <div id="messages"></div>
-        <div style="padding:15px; display:flex; gap:10px; border-top:1px solid #111;">
+        <div style="padding:15px; display:flex; gap:10px;">
             <input type="text" id="msg-input" placeholder="Mensaje..." onkeypress="if(event.key==='Enter') enviar()" style="margin:0;">
             <button class="btn" style="width:auto; padding:0 20px;" onclick="enviar()">></button>
         </div>
@@ -72,29 +69,25 @@
 
         let modoRegistro = false;
 
-        // 1. Pantalla de carga
-        window.addEventListener('DOMContentLoaded', () => {
+        // 1. Pantalla de carga simplificada
+        window.onload = () => {
             let p = 0;
             const bar = document.getElementById('bar');
             const interval = setInterval(() => {
-                p += 5;
+                p += 10;
                 bar.style.width = p + '%';
                 if(p >= 100) {
                     clearInterval(interval);
                     document.getElementById('loader').style.display = 'none';
-                    validarSeguridadSesion();
+                    // Al cargar, si ya hay usuario pero no hay active_session, verificamos el tiempo
+                    const exit = localStorage.getItem('exit_time');
+                    if (exit && (Date.now() - parseInt(exit)) > 300000) {
+                        auth.signOut();
+                        sessionStorage.removeItem('active_session');
+                    }
                 }
             }, 50);
-        });
-
-        function validarSeguridadSesion() {
-            const exit = localStorage.getItem('exit_time');
-            const sessionActive = sessionStorage.getItem('active_session');
-            // Si no hay sesión activa en la pestaña Y pasaron 5 min, cerrar sesión real
-            if (!sessionActive && exit && (Date.now() - parseInt(exit)) > 300000) {
-                auth.signOut();
-            }
-        }
+        };
 
         window.onbeforeunload = () => { if(auth.currentUser) localStorage.setItem('exit_time', Date.now().toString()); };
 
@@ -102,20 +95,16 @@
             modoRegistro = !modoRegistro;
             document.getElementById('auth-title').innerText = modoRegistro ? "// REGISTRO" : "// LOGIN";
             document.getElementById('main-btn').innerText = modoRegistro ? "CREAR CUENTA" : "ENTRAR";
-            document.getElementById('toggle-link').innerText = modoRegistro ? "VOLVER AL LOGIN" : "¿NUEVO NODO? REGISTRAR AQUÍ";
         }
 
-        // 2. Proceso de Acceso Corregido
+        // 2. Proceso de Acceso con Redirección de Flujo
         async function procesarAcceso() {
             const u = document.getElementById('user').value.trim().toLowerCase();
             const p = document.getElementById('pass').value;
-            if(!u || p.length < 6) return alert("Usuario requerido / Password min 6 carac.");
+            if(!u || p.length < 6) return alert("Error: Datos incompletos.");
 
             const email = u + "@terminal.local";
             try {
-                // Primero configuramos que la sesión sea persistente localmente
-                await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-                
                 if(modoRegistro) {
                     const res = await auth.createUserWithEmailAndPassword(email, p);
                     await db.ref('users/' + res.user.uid).set({ username: u, role: 'user' });
@@ -123,20 +112,38 @@
                     await auth.signInWithEmailAndPassword(email, p);
                 }
                 
-                // IMPORTANTE: Marcamos la pestaña como activa ANTES de que el observador actúe
+                // ESTA ES LA CLAVE: Marcamos la sesión y forzamos la actualización manual
                 sessionStorage.setItem('active_session', 'true');
-                
+                actualizarInterfaz(); 
+
             } catch(e) { 
-                alert("ERROR: Datos incorrectos o usuario ya existe."); 
+                alert("ERROR: Acceso denegado."); 
+            }
+        }
+
+        function actualizarInterfaz() {
+            const user = auth.currentUser;
+            if(user && sessionStorage.getItem('active_session')) {
+                db.ref('users/' + user.uid).once('value', s => {
+                    if(s.val()) {
+                        document.getElementById('display-name').innerText = s.val().username.toUpperCase();
+                        document.getElementById('auth-overlay').style.display = 'none';
+                        document.getElementById('main-chat').style.display = 'flex';
+                    }
+                });
+            } else {
+                document.getElementById('auth-overlay').style.display = 'flex';
+                document.getElementById('main-chat').style.display = 'none';
             }
         }
 
         function cerrarSesion() {
-            sessionStorage.clear();
+            sessionStorage.removeItem('active_session');
             localStorage.removeItem('exit_time');
             auth.signOut().then(() => location.reload());
         }
 
+        // 3. Chat
         function enviar() {
             const inp = document.getElementById('msg-input');
             const txt = inp.value.trim();
@@ -172,23 +179,9 @@
             box.scrollTop = box.scrollHeight;
         });
 
-        // 3. Observador de Estado (Blindado)
-        auth.onAuthStateChanged(user => {
-            const hasTabAccess = sessionStorage.getItem('active_session');
-            
-            if(user && hasTabAccess) {
-                db.ref('users/' + user.uid).on('value', s => {
-                    if(s.val()) {
-                        document.getElementById('display-name').innerText = s.val().username.toUpperCase();
-                        document.getElementById('auth-overlay').style.display = 'none';
-                        document.getElementById('main-chat').style.display = 'flex';
-                    }
-                });
-            } else {
-                // Si hay un usuario pero no tiene "llave" de pestaña, lo mostramos fuera
-                document.getElementById('auth-overlay').style.display = 'flex';
-                document.getElementById('main-chat').style.display = 'none';
-            }
+        // Escuchar cambios de estado de Firebase
+        auth.onAuthStateChanged(() => {
+            actualizarInterfaz();
         });
     </script>
 </body>
