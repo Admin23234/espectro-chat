@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TERMINAL_ROOT // ESPECTRO-CHAT</title>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -9,71 +10,86 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
         :root { --green: #00ff41; --cyan: #00f3ff; --bg: #050505; --red: #ff3131; --yellow: #ffff00; }
+        
+        * { box-sizing: border-box; }
         body { background: var(--bg); color: var(--green); font-family: 'JetBrains Mono', monospace; margin: 0; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         
-        /* Loader y Overlays */
-        #loader { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .bar-container { width: 200px; height: 2px; background: #111; margin-top: 15px; }
+        /* Pantallas de Carga y Bloqueo */
+        #loader { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; }
+        .bar-container { width: 80%; max-width: 300px; height: 2px; background: #111; margin-top: 15px; }
         .bar-fill { width: 0%; height: 100%; background: var(--green); transition: width 0.1s; }
-        #ban-overlay { position: fixed; inset: 0; background: #1a0000; color: #fff; z-index: 10000; display: none; align-items: center; justify-content: center; flex-direction: column; text-align: center; border: 5px solid var(--red); }
-        #auth-overlay { position: fixed; inset: 0; background: #000; z-index: 1000; display: none; align-items: center; justify-content: center; }
-        .auth-card { width: 300px; padding: 30px; border: 1px solid var(--green); background: #000; }
+        
+        #ban-overlay { position: fixed; inset: 0; background: #1a0000; color: #fff; z-index: 10000; display: none; align-items: center; justify-content: center; flex-direction: column; text-align: center; border: 5px solid var(--red); padding: 20px; }
+
+        /* Acceso Responsivo */
+        #auth-overlay { position: fixed; inset: 0; background: #000; z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .auth-card { width: 100%; max-width: 350px; padding: 30px; border: 1px solid var(--green); background: #000; }
 
         /* Estructura Chat */
-        #main-chat { display: none; flex: 1; flex-direction: column; height: 100vh; }
-        header { padding: 10px 20px; border-bottom: 1px solid #111; display: flex; justify-content: space-between; font-size: 11px; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px; }
+        #main-chat { display: none; flex-direction: column; height: 100vh; width: 100%; }
+        header { padding: 10px 15px; border-bottom: 1px solid #111; display: flex; justify-content: space-between; font-size: 10px; background: #000; }
+        #messages { flex: 1; overflow-y: auto; padding: 15px; font-size: 14px; }
 
-        /* Estilos de Mensajes */
+        /* Mensajes Estilo */
         .admin-tag { color: var(--red); border: 1px solid var(--red); font-size: 9px; padding: 0 3px; margin-right: 5px; font-weight: bold; }
-        .system-msg { color: var(--yellow); font-size: 13px; margin: 10px 0; border-left: 2px solid var(--yellow); padding-left: 10px; }
+        .system-msg { color: var(--yellow); font-size: 13px; margin: 12px 0; border-left: 3px solid var(--yellow); padding-left: 10px; line-height: 1.4; }
         .user-clickable { cursor: pointer; text-decoration: underline; }
-        .user-clickable:hover { color: #fff !important; }
-        .no-click { cursor: default; text-decoration: none !important; } /* Para SISTEMA */
+        .no-click { cursor: default; text-decoration: none !important; }
 
-        /* Chat Privado y Notif */
-        #private-window { position: fixed; bottom: 80px; right: 20px; width: 300px; height: 400px; background: #0a0a0a; border: 1px solid var(--cyan); display: none; flex-direction: column; z-index: 2000; }
-        #private-header { background: #111; padding: 10px; font-size: 10px; display: flex; justify-content: space-between; border-bottom: 1px solid var(--cyan); color: var(--cyan); }
-        #private-msgs { flex: 1; overflow-y: auto; padding: 10px; font-size: 12px; }
-        #pvt-notif { position: fixed; bottom: 90px; right: 20px; background: var(--cyan); color: #000; padding: 10px; font-size: 10px; font-weight: bold; cursor: pointer; display: none; z-index: 1999; animation: blink 1s infinite; }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        /* Input de Chat */
+        .input-area { padding: 15px; display: flex; gap: 10px; background: #000; border-top: 1px solid #111; }
+        input { flex: 1; background: #000; border: 1px solid #004400; color: #fff; padding: 12px; font-family: 'JetBrains Mono'; outline: none; font-size: 14px; }
+        .btn { background: transparent; border: 1px solid var(--green); color: var(--green); padding: 12px 20px; cursor: pointer; font-family: 'JetBrains Mono'; font-weight: bold; }
 
-        input { width: 100%; background: #000; border: 1px solid #004400; color: #fff; padding: 12px; font-family: 'JetBrains Mono'; outline: none; margin-bottom: 10px; box-sizing: border-box; }
-        .btn { width: 100%; background: transparent; border: 1px solid var(--green); color: var(--green); padding: 12px; cursor: pointer; font-family: 'JetBrains Mono'; font-weight: bold; }
-        .btn:hover { background: var(--green); color: #000; }
+        /* Chat Privado Flotante (Adaptable) */
+        #private-window { position: fixed; bottom: 85px; right: 10px; width: calc(100% - 20px); max-width: 320px; height: 60vh; max-height: 450px; background: #0a0a0a; border: 1px solid var(--cyan); display: none; flex-direction: column; z-index: 2000; }
+        #private-header { background: #111; padding: 12px; font-size: 10px; display: flex; justify-content: space-between; border-bottom: 1px solid var(--cyan); color: var(--cyan); }
+        #private-msgs { flex: 1; overflow-y: auto; padding: 10px; font-size: 13px; color: #fff; }
+        
+        /* Notificación */
+        #pvt-notif { position: fixed; bottom: 90px; right: 10px; left: 10px; max-width: 320px; margin-left: auto; background: var(--cyan); color: #000; padding: 12px; font-size: 11px; font-weight: bold; text-align: center; cursor: pointer; display: none; z-index: 1999; animation: blink 1s infinite; border-radius: 2px; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        /* Ajustes para pantallas grandes */
+        @media (min-width: 768px) {
+            header { font-size: 12px; }
+            #messages { padding: 30px; }
+            #private-window { right: 20px; bottom: 80px; width: 320px; }
+            #pvt-notif { right: 20px; left: auto; }
+        }
     </style>
 </head>
 <body>
 
     <div id="ban-overlay">
-        <h1 style="letter-spacing: 10px;">SISTEMA BLOQUEADO</h1>
-        <p id="ban-time"></p>
+        <h1 style="letter-spacing: 5px; color: var(--red);">TERMINAL BLOQUEADA</h1>
+        <p id="ban-time" style="color: var(--cyan);"></p>
     </div>
 
     <div id="loader">
-        <div style="letter-spacing: 5px;">ESPECTRO_SYSTEM_BOOTING...</div>
+        <div style="letter-spacing: 3px; font-size: 10px;">INICIALIZANDO_NODO_SEGURO...</div>
         <div class="bar-container"><div class="bar-fill" id="bar"></div></div>
     </div>
 
     <div id="auth-overlay">
         <div class="auth-card">
-            <h3 id="auth-title">// ACCESO</h3>
-            <input type="text" id="user" placeholder="USUARIO">
+            <h3 id="auth-title" style="color:var(--cyan); margin-top:0;">// ACCESO</h3>
+            <input type="text" id="user" placeholder="USUARIO" spellcheck="false">
             <input type="password" id="pass" placeholder="PASSWORD">
-            <button class="btn" onclick="procesarAcceso()">CONECTAR</button>
-            <p style="font-size: 9px; cursor: pointer; margin-top: 15px;" onclick="cambiarModo()">¿NUEVO NODO? REGISTRAR</p>
+            <button class="btn" style="width:100%" onclick="procesarAcceso()">CONECTAR</button>
+            <p style="font-size: 9px; cursor: pointer; margin-top: 15px; opacity: 0.6;" onclick="cambiarModo()">¿NUEVO NODO? REGISTRAR AQUÍ</p>
         </div>
     </div>
 
     <div id="main-chat">
         <header>
             <div>NODO: <span id="display-name" style="color:var(--cyan)">...</span></div>
-            <button onclick="cerrarSesion()" style="color:var(--red); background:none; border:none; cursor:pointer;">[ DISCONNECT ]</button>
+            <div onclick="cerrarSesion()" style="color:var(--red); cursor:pointer;">[ DISCONNECT ]</div>
         </header>
         <div id="messages"></div>
-        <div style="padding:15px; display:flex; gap:10px;">
-            <input type="text" id="msg-input" placeholder="Mensaje..." onkeypress="if(event.key==='Enter') enviar()">
-            <button class="btn" style="width:auto; padding:0 20px;" onclick="enviar()">></button>
+        <div class="input-area">
+            <input type="text" id="msg-input" placeholder="Mensaje..." onkeypress="if(event.key==='Enter') enviar()" autocomplete="off">
+            <button class="btn" onclick="enviar()">></button>
         </div>
     </div>
 
@@ -82,10 +98,10 @@
     <div id="private-window">
         <div id="private-header">
             <span id="private-target-name">PRIVADO</span>
-            <span style="cursor:pointer" onclick="cerrarPrivado()">[X]</span>
+            <span style="cursor:pointer; padding: 0 5px;" onclick="cerrarPrivado()">[X]</span>
         </div>
         <div id="private-msgs"></div>
-        <div style="padding:5px;">
+        <div style="padding:10px; background: #000;">
             <input type="text" id="private-input" placeholder="Responder..." onkeypress="if(event.key==='Enter') enviarPrivado()">
         </div>
     </div>
@@ -106,7 +122,6 @@
         let ultimaNotifDe = null;
         const beep = new Audio('https://actions.google.com/sounds/v1/communication/notification_high_intensity.ogg');
 
-        // --- INICIO ---
         window.onload = () => {
             let p = 0;
             const bar = document.getElementById('bar');
@@ -142,6 +157,7 @@
         async function procesarAcceso() {
             const u = document.getElementById('user').value.trim().toLowerCase();
             const p = document.getElementById('pass').value;
+            if(!u || p.length < 6) return alert("Datos inválidos");
             try {
                 if(modoRegistro) {
                     await auth.createUserWithEmailAndPassword(u + "@terminal.local", p);
@@ -151,10 +167,9 @@
                 }
                 sessionStorage.setItem('active_session', 'true');
                 location.reload();
-            } catch(e) { alert("ERROR"); }
+            } catch(e) { alert("ACCESO DENEGADO"); }
         }
 
-        // --- PRIVADOS ---
         function iniciarRastreadorPrivado() {
             auth.onAuthStateChanged(user => {
                 if (!user) return;
@@ -166,7 +181,7 @@
                                 if (m.val().from !== miNombre && chatPrivadoCon !== m.val().from) {
                                     ultimaNotifDe = m.val().from;
                                     document.getElementById('pvt-notif').style.display = 'block';
-                                    beep.play();
+                                    beep.play().catch(()=>{});
                                 }
                             });
                         }
@@ -176,7 +191,7 @@
         }
 
         function abrirPrivado(target) {
-            if(target.toUpperCase() === 'SISTEMA') return; // Bloqueo de seguridad
+            if(target.toUpperCase() === 'SISTEMA') return;
             chatPrivadoCon = target;
             document.getElementById('pvt-notif').style.display = 'none';
             document.getElementById('private-target-name').innerText = "TRANSMISIÓN: " + target.toUpperCase();
@@ -187,7 +202,8 @@
                 const msgs = document.getElementById('private-msgs');
                 msgs.innerHTML = '';
                 snap.forEach(c => {
-                    msgs.innerHTML += `<p><b style="color:${c.val().from===miNombre?'var(--green)':'var(--cyan)'}">${c.val().from.toUpperCase()}:</b> ${c.val().text}</p>`;
+                    const esMio = c.val().from === miNombre;
+                    msgs.innerHTML += `<p style="margin:8px 0"><b style="color:${esMio?'var(--green)':'var(--cyan)'}">${c.val().from.toUpperCase()}:</b> ${c.val().text}</p>`;
                 });
                 msgs.scrollTop = msgs.scrollHeight;
             });
@@ -206,7 +222,6 @@
             inp.value = '';
         }
 
-        // --- GLOBAL ---
         async function enviar() {
             const inp = document.getElementById('msg-input');
             const val = inp.value.trim();
@@ -224,6 +239,8 @@
                         db.ref('messages').push({ user: 'SISTEMA', target: target.toUpperCase(), admin: me.username.toUpperCase(), isBanMsg: true });
                     }
                 });
+            } else if(val === '/clear' && isAdmin) {
+                db.ref('messages').remove();
             } else if(!val.startsWith('/')) {
                 db.ref('messages').push({ user: me.username, text: val, role: me.role || 'user' });
             }
@@ -231,35 +248,33 @@
         }
 
         function actualizarInterfaz() {
-            if(auth.currentUser && sessionStorage.getItem('active_session')) {
+            if(auth.currentUser) {
                 db.ref('users/' + auth.currentUser.uid).on('value', s => {
-                    document.getElementById('display-name').innerText = s.val().username.toUpperCase();
-                    document.getElementById('auth-overlay').style.display = 'none';
-                    document.getElementById('main-chat').style.display = 'flex';
+                    if(s.val()) {
+                        document.getElementById('display-name').innerText = s.val().username.toUpperCase();
+                        document.getElementById('auth-overlay').style.display = 'none';
+                        document.getElementById('main-chat').style.display = 'flex';
+                    }
                 });
             } else { document.getElementById('auth-overlay').style.display = 'flex'; }
         }
 
         function cerrarSesion() { sessionStorage.clear(); auth.signOut().then(() => location.reload()); }
 
-        // --- RENDERIZADO ---
         db.ref('messages').on('value', snap => {
             const box = document.getElementById('messages');
             box.innerHTML = '';
             snap.forEach(c => {
                 const m = c.val();
                 const div = document.createElement('div');
-                div.style.marginBottom = "8px";
-                
+                div.style.marginBottom = "10px";
                 if(m.user === 'SISTEMA') {
                     div.className = 'system-msg';
-                    // SISTEMA no tiene clase "user-clickable" y no tiene onclick
                     const label = `<b class="no-click">SISTEMA:</b>`;
                     if(m.isBanMsg) div.innerHTML = `${label} EL USUARIO <span style="color:var(--cyan)">${m.target}</span> HA SIDO BANEADO POR: <span style="color:var(--red)">${m.admin}</span>`;
                     else div.innerHTML = `${label} ${m.text || ''}`;
                 } else {
                     const isAdmin = (m.role === 'admin' || m.user === 'johan');
-                    // Usuarios normales si son clicables
                     div.innerHTML = `${isAdmin?'<span class="admin-tag">ADMIN</span>':''}<b class="user-clickable" style="color:${isAdmin?'var(--cyan)':'#fff'}" onclick="abrirPrivado('${m.user}')">${m.user}:</b> <span style="color:#fff">${m.text}</span>`;
                 }
                 box.appendChild(div);
