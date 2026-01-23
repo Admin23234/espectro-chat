@@ -12,58 +12,62 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
         :root { --green: #00ff41; --cyan: #00f3ff; --bg: #050505; }
+
         * { box-sizing: border-box; cursor: crosshair !important; }
-        body { background: var(--bg); color: var(--green); font-family: 'JetBrains Mono', monospace; margin: 0; height: 100vh; overflow: hidden; }
+        body { background: var(--bg) !important; color: var(--green); font-family: 'JetBrains Mono', monospace; margin: 0; height: 100vh; overflow: hidden; }
 
-        /* CARGA */
-        #loading-screen { position: fixed; inset: 0; background: var(--bg); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .loader-bar { width: 200px; height: 2px; background: #002200; position: relative; margin-top: 15px; }
-        .progress { width: 50%; height: 100%; background: var(--green); position: absolute; animation: load 2s infinite; }
-        @keyframes load { 0% { left: -50%; } 100% { left: 100%; } }
+        /* CARGA FORZADA AL FRENTE */
+        #loading-screen { position: fixed; inset: 0; background: #000; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .loader-line { width: 150px; height: 1px; background: #002200; overflow: hidden; margin-top: 10px; }
+        .progress-line { width: 40%; height: 100%; background: var(--green); animation: slide 1.5s infinite; position: relative; }
+        @keyframes slide { from { left: -40%; } to { left: 100%; } }
 
-        /* AUTH */
-        #auth-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); z-index: 1000; display: none; align-items: center; justify-content: center; }
-        .auth-card { width: 350px; padding: 30px; border: 1px solid var(--green); background: #000; text-align: center; }
+        /* AUTH OVERLAY */
+        #auth-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 5000; display: none; align-items: center; justify-content: center; }
+        .auth-card { width: 340px; padding: 30px; border: 1px solid var(--green); background: #000; box-shadow: 0 0 15px rgba(0,255,65,0.1); }
         .input-group { margin-bottom: 15px; position: relative; }
-        input { width: 100%; background: #000; border: 1px solid #004400; color: #fff; padding: 12px; font-family: 'JetBrains Mono'; outline: none; }
-        .eye-btn { position: absolute; right: 10px; top: 12px; color: var(--green); cursor: pointer !important; opacity: 0.7; }
+        input { width: 100%; background: #000 !important; border: 1px solid #003300; color: #fff !important; padding: 12px; font-family: 'JetBrains Mono'; outline: none; }
+        .eye-btn { position: absolute; right: 10px; top: 12px; color: var(--green); cursor: pointer !important; font-size: 1.1rem; opacity: 0.6; }
 
-        /* CHAT */
-        #main-chat { display: none; flex-direction: column; height: 100vh; }
-        header { padding: 10px 20px; border-bottom: 1px solid #111; display: flex; justify-content: space-between; align-items: center; font-size: 10px; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 5px; }
-        .btn { background: transparent; border: 1px solid var(--green); color: var(--green); padding: 10px; width: 100%; cursor: pointer !important; font-weight: bold; margin-top: 10px; }
+        /* CHAT UI */
+        #main-chat { display: none; flex-direction: column; height: 100vh; background: var(--bg); }
+        header { padding: 12px 20px; border-bottom: 1px solid #111; display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+        #messages { flex: 1; overflow-y: auto; padding: 20px; color: #fff; }
+        .btn { width: 100%; background: transparent; border: 1px solid var(--green); color: var(--green); padding: 12px; font-weight: bold; cursor: pointer !important; text-transform: uppercase; margin-top: 10px; }
         .btn:hover { background: var(--green); color: #000; }
+
+        .chat-footer { padding: 15px; border-top: 1px solid #111; display: flex; gap: 10px; background: #000; }
+        #chat-input { flex: 1; border-color: #222; }
     </style>
 </head>
 <body>
 
     <div id="loading-screen">
-        <p style="font-size: 12px; letter-spacing: 2px;">ESPECTRO_OS_INIT</p>
-        <div class="loader-bar"><div class="progress"></div></div>
+        <p style="font-size: 10px; letter-spacing: 2px;">VINCULANDO_DATOS...</p>
+        <div class="loader-line"><div class="progress-line"></div></div>
     </div>
 
     <div id="auth-overlay">
         <div class="auth-card">
             <div id="login-tab">
-                <h3 style="color:var(--cyan); font-size: 14px;">// ACCESO_SISTEMA</h3>
+                <h2 style="font-size:14px; color:var(--cyan);">// LOGIN</h2>
                 <div class="input-group"><input type="text" id="log-user" placeholder="USUARIO"></div>
                 <div class="input-group">
                     <input type="password" id="log-pass" placeholder="PASSWORD">
                     <span class="eye-btn" onclick="togglePass('log-pass')">👁</span>
                 </div>
                 <button class="btn" onclick="login()">CONECTAR</button>
-                <p style="font-size: 9px; margin-top: 15px; cursor: pointer;" onclick="toggleTab()">REGISTRAR_NUEVO_NODO</p>
+                <p style="font-size:9px; margin-top:20px; cursor:pointer;" onclick="toggleTab()">REGISTRAR NODO</p>
             </div>
             <div id="reg-tab" style="display:none;">
-                <h3 style="color:var(--cyan); font-size: 14px;">// CREAR_NODO</h3>
+                <h2 style="font-size:14px; color:var(--cyan);">// REGISTRO</h2>
                 <div class="input-group"><input type="text" id="reg-user" placeholder="USUARIO"></div>
                 <div class="input-group">
                     <input type="password" id="reg-p1" placeholder="PASSWORD">
                     <span class="eye-btn" onclick="togglePass('reg-p1')">👁</span>
                 </div>
                 <button class="btn" onclick="register()">INICIALIZAR</button>
-                <p style="font-size: 9px; margin-top: 15px; cursor: pointer;" onclick="toggleTab()">VOLVER_AL_ACCESO</p>
+                <p style="font-size:9px; margin-top:20px; cursor:pointer;" onclick="toggleTab()">VOLVER AL LOGIN</p>
             </div>
         </div>
     </div>
@@ -71,12 +75,12 @@
     <div id="main-chat">
         <header>
             <div>NODO: <span id="display-name" style="color:var(--cyan)">...</span> | ESTADO: ONLINE</div>
-            <button onclick="logout()" style="color:red; background:none; border:1px solid red; padding:2px 8px; cursor:pointer !important;">LOGOUT</button>
+            <button onclick="logout()" style="color:red; background:none; border:1px solid red; padding:3px 8px; font-size:9px; cursor:pointer !important;">LOGOUT</button>
         </header>
         <div id="messages"></div>
-        <div style="padding:15px; display:flex; gap:10px; border-top:1px solid #111;">
-            <input type="text" id="chat-input" placeholder="Comando..." onkeypress="if(event.key==='Enter') send()">
-            <button class="btn" style="width:auto; margin:0; padding:0 20px;" onclick="send()">></button>
+        <div class="chat-footer">
+            <input type="text" id="chat-input" placeholder="Mensaje..." onkeypress="if(event.key==='Enter') send()">
+            <button class="btn" style="width:auto; margin:0; padding:0 25px;" onclick="send()">></button>
         </div>
     </div>
 
@@ -139,22 +143,14 @@
         db.ref('messages').limitToLast(50).on('child_added', snap => {
             const d = snap.val();
             const div = document.createElement('div');
-            div.innerHTML = `<b style="color:var(--cyan)">${d.user}:</b> <span style="color:#fff">${d.text}</span>`;
+            div.style.marginBottom = "8px";
+            div.innerHTML = `<b style="color:var(--cyan)">${d.user}:</b> <span>${d.text}</span>`;
             document.getElementById('messages').appendChild(div);
             document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
         });
 
-        // CONTROL DE CARGA CON TIMEOUT
-        const loadTimeout = setTimeout(() => {
-            if (document.getElementById('loading-screen').style.display !== 'none') {
-                console.log("Timeout: Forzando visibilidad");
-                document.getElementById('loading-screen').style.display = 'none';
-                document.getElementById('auth-overlay').style.display = 'flex';
-            }
-        }, 4000);
-
+        // DESBLOQUEADOR DE PANTALLA NEGRA
         auth.onAuthStateChanged(user => {
-            clearTimeout(loadTimeout);
             document.getElementById('loading-screen').style.display = 'none';
             if(user) {
                 db.ref('users/' + user.uid).once('value', s => {
@@ -162,6 +158,9 @@
                         document.getElementById('display-name').innerText = s.val().username.toUpperCase();
                         document.getElementById('auth-overlay').style.display = 'none';
                         document.getElementById('main-chat').style.display = 'flex';
+                    } else {
+                        // Reparación de cuenta Johan si está corrupta
+                        logout();
                     }
                 });
             } else {
@@ -169,6 +168,11 @@
                 document.getElementById('main-chat').style.display = 'none';
             }
         });
+
+        // Fail-safe: Si después de 5 segundos sigue cargando, quita la pantalla negra
+        setTimeout(() => {
+            document.getElementById('loading-screen').style.display = 'none';
+        }, 5000);
     </script>
 </body>
 </html>
