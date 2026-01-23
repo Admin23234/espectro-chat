@@ -12,19 +12,19 @@
         body { background: var(--bg); color: var(--green); font-family: 'JetBrains Mono', monospace; margin: 0; height: 100vh; display: flex; flex-direction: column; }
         
         #auth-overlay { position: fixed; inset: 0; background: #000; z-index: 999; display: none; align-items: center; justify-content: center; }
-        .auth-card { width: 320px; padding: 25px; border: 1px solid var(--green); background: #000; box-shadow: 0 0 15px rgba(0,255,65,0.2); }
+        .auth-card { width: 320px; padding: 25px; border: 1px solid var(--green); background: #000; }
         .input-group { margin-bottom: 15px; position: relative; }
         input { width: 100%; background: #000; border: 1px solid #004400; color: #fff; padding: 10px; font-family: 'JetBrains Mono'; outline: none; }
         .eye-btn { position: absolute; right: 10px; top: 10px; cursor: pointer !important; opacity: 0.6; }
 
         #main-chat { display: none; flex-direction: column; height: 100vh; }
-        header { padding: 10px 20px; border-bottom: 1px solid #111; display: flex; justify-content: space-between; font-size: 11px; background: #000; }
+        header { padding: 10px 20px; border-bottom: 1px solid #111; display: flex; justify-content: space-between; font-size: 11px; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; }
         .btn { width: 100%; background: transparent; border: 1px solid var(--green); color: var(--green); padding: 10px; cursor: pointer !important; font-weight: bold; text-transform: uppercase; }
         .btn:hover { background: var(--green); color: #000; }
         
         .chat-footer { padding: 15px; border-top: 1px solid #111; display: flex; gap: 10px; }
-        #chat-input { flex: 1; border-color: #222; }
+        #chat-input { flex: 1; }
     </style>
 </head>
 <body>
@@ -41,7 +41,6 @@
                 <button class="btn" onclick="entrar()">ENTRAR</button>
                 <p style="font-size:9px; text-align:center; margin-top:20px; cursor:pointer;" onclick="switchTab(true)">REGISTRAR NUEVO NODO</p>
             </div>
-
             <div id="reg-box" style="display:none;">
                 <h3 style="color:var(--cyan); font-size:14px;">// CREAR_NODO</h3>
                 <div class="input-group"><input type="text" id="reg-user" placeholder="NOMBRE_USUARIO"></div>
@@ -58,7 +57,7 @@
     <div id="main-chat">
         <header>
             <div>NODO: <span id="display-name" style="color:var(--cyan)">...</span> | ESTADO: ONLINE</div>
-            <button onclick="cerrarSesionManual()" style="color:red; background:none; border:1px solid red; padding:2px 8px; font-size:9px; cursor:pointer !important;">LOGOUT</button>
+            <button onclick="cerrarSesionManual()" style="color:red; background:none; border:1px solid red; padding:2px 8px; font-size:9px;">LOGOUT</button>
         </header>
         <div id="messages"></div>
         <div class="chat-footer">
@@ -78,28 +77,41 @@
         const auth = firebase.auth();
         const db = firebase.database();
 
-        // LÓGICA DE TIEMPO DE GRACIA (5 MINUTOS)
-        const checkSession = () => {
-            const lastActive = localStorage.getItem('last_active');
-            if (lastActive) {
-                const now = Date.now();
-                const diff = (now - parseInt(lastActive)) / 1000 / 60; // Diferencia en minutos
-                if (diff > 5) {
-                    auth.signOut(); // Si pasó más de 5 min, desloguear
-                    localStorage.removeItem('last_active');
+        // --- LÓGICA DE PESTAÑA Y TIEMPO ---
+        const VALID_SESSION_KEY = 'chat_active_session';
+        const LAST_EXIT_KEY = 'chat_last_exit';
+
+        const initSecurity = () => {
+            const isTabSessionActive = sessionStorage.getItem(VALID_SESSION_KEY);
+            const lastExitTime = localStorage.getItem(LAST_EXIT_KEY);
+            const now = Date.now();
+
+            if (!isTabSessionActive) {
+                // Si no hay sesión en esta pestaña, comprobamos el tiempo de gracia
+                if (lastExitTime) {
+                    const diffMinutes = (now - parseInt(lastExitTime)) / 1000 / 60;
+                    if (diffMinutes > 5) {
+                        auth.signOut(); // Pasaron más de 5 min
+                        localStorage.removeItem(LAST_EXIT_KEY);
+                    } else {
+                        // Dentro de los 5 min: restauramos la llave para esta pestaña
+                        sessionStorage.setItem(VALID_SESSION_KEY, 'true');
+                    }
+                } else {
+                    // Pestaña nueva y no hay registro de salida reciente: Pedir login
+                    auth.signOut();
                 }
             }
         };
 
-        // Guardar marca de tiempo al cerrar o recargar
-        window.addEventListener('beforeunload', () => {
+        // Guardar hora al cerrar/recargar
+        window.onbeforeunload = () => {
             if (auth.currentUser) {
-                localStorage.setItem('last_active', Date.now().toString());
+                localStorage.setItem(LAST_EXIT_KEY, Date.now().toString());
             }
-        });
+        };
 
-        // Ejecutar chequeo al cargar
-        checkSession();
+        initSecurity();
 
         function togglePass(id) {
             const x = document.getElementById(id);
@@ -116,27 +128,29 @@
         async function registrar() {
             const u = document.getElementById('reg-user').value.trim();
             const p = document.getElementById('reg-pass').value;
-            if(!u || p.length < 6) return alert("Datos insuficientes.");
+            if(!u || p.length < 6) return alert("Mínimo 6 caracteres.");
             try {
-                // Persistencia de sesión: Se borra al cerrar el navegador
-                await auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+                await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
                 const res = await auth.createUserWithEmailAndPassword(fixMail(u), p);
                 await db.ref('users/' + res.user.uid).set({ username: u });
+                sessionStorage.setItem(VALID_SESSION_KEY, 'true');
                 location.reload();
-            } catch(e) { alert("Error: El usuario ya existe."); }
+            } catch(e) { alert("Error al registrar."); }
         }
 
         async function entrar() {
             const u = document.getElementById('log-user').value.trim();
             const p = document.getElementById('log-pass').value;
             try { 
-                await auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
-                await auth.signInWithEmailAndPassword(fixMail(u), p); 
-            } catch(e) { alert("ACCESO DENEGADO."); }
+                await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+                await auth.signInWithEmailAndPassword(fixMail(u), p);
+                sessionStorage.setItem(VALID_SESSION_KEY, 'true');
+            } catch(e) { alert("DATOS INCORRECTOS"); }
         }
 
         function cerrarSesionManual() {
-            localStorage.removeItem('last_active');
+            sessionStorage.removeItem(VALID_SESSION_KEY);
+            localStorage.removeItem(LAST_EXIT_KEY);
             auth.signOut().then(() => location.reload());
         }
 
@@ -161,7 +175,8 @@
         });
 
         auth.onAuthStateChanged(user => {
-            if(user) {
+            const hasAccess = sessionStorage.getItem(VALID_SESSION_KEY);
+            if(user && hasAccess) {
                 db.ref('users/' + user.uid).on('value', s => {
                     if(s.val()) {
                         document.getElementById('display-name').innerText = s.val().username.toUpperCase();
